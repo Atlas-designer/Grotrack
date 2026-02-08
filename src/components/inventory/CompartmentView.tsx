@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus } from 'lucide-react';
-import { CompartmentType, InventoryItem } from '../../types';
+import { ArrowLeft, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { CompartmentType, InventoryItem, DEFAULT_COMPARTMENTS } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
 import { useHouse } from '../../contexts/HouseContext';
 import { ItemCard } from './ItemCard';
 import { ItemActionSheet } from './ItemActionSheet';
+
+const DEFAULT_IDS = new Set(DEFAULT_COMPARTMENTS.map((c) => c.id));
 
 interface CompartmentViewProps {
   compartment: CompartmentType;
@@ -14,10 +16,24 @@ interface CompartmentViewProps {
 
 export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentViewProps) {
   const { items } = useInventory();
-  const { compartments } = useHouse();
+  const { compartments, removeCompartment } = useHouse();
   const compartmentInfo = compartments.find((c) => c.id === compartment);
   const compartmentItems = items.filter((item) => item.compartment === compartment);
   const [moveItem, setMoveItem] = useState<InventoryItem | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const isCustom = !DEFAULT_IDS.has(compartment);
+
+  const handleDeleteCompartment = async () => {
+    setDeleting(true);
+    try {
+      await removeCompartment(compartment);
+      onBack();
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-navy-950">
@@ -38,13 +54,24 @@ export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentV
               </p>
             </div>
           </div>
-          <button
-            onClick={onAddItem}
-            className="p-2.5 bg-accent-400 text-navy-950 rounded-xl hover:bg-accent-300 transition-colors"
-            aria-label="Add item"
-          >
-            <Plus size={20} strokeWidth={2.5} />
-          </button>
+          <div className="flex items-center gap-1">
+            {isCustom && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2.5 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-colors"
+                aria-label="Delete compartment"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
+            <button
+              onClick={onAddItem}
+              className="p-2.5 bg-accent-400 text-navy-950 rounded-xl hover:bg-accent-300 transition-colors"
+              aria-label="Add item"
+            >
+              <Plus size={20} strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -70,6 +97,43 @@ export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentV
 
       {moveItem && (
         <ItemActionSheet item={moveItem} onClose={() => setMoveItem(null)} />
+      )}
+
+      {/* Delete compartment confirmation */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="relative bg-navy-900 w-full max-w-sm mx-4 rounded-2xl border border-white/10 p-5">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 bg-red-400/15 rounded-lg flex-shrink-0">
+                <AlertTriangle size={20} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold">Delete "{compartmentInfo?.name}"?</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  This compartment will be removed. {compartmentItems.length > 0
+                    ? `The ${compartmentItems.length} item${compartmentItems.length !== 1 ? 's' : ''} inside will remain but won't be visible until moved.`
+                    : 'It has no items.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 bg-navy-700 border border-white/10 text-white text-sm font-medium rounded-xl hover:bg-navy-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteCompartment}
+                disabled={deleting}
+                className="flex-1 py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl hover:bg-red-400 transition-colors disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

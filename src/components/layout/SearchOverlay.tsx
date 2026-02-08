@@ -32,7 +32,7 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy-950">
+    <div className="fixed inset-0 z-[60] bg-navy-950">
       <div className="flex items-center gap-2 p-3 border-b border-white/5 bg-navy-900/80 backdrop-blur-lg">
         <button
           onClick={onClose}

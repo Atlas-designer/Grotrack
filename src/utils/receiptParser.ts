@@ -4,9 +4,13 @@ export interface ParsedReceiptItem {
   selected: boolean;
 }
 
+// Known store/brand names to filter out
+const STORE_NAMES = /\b(sainsbury|tesco|asda|morrisons|waitrose|aldi|lidl|co-?op|marks\s*&?\s*spencer|m&s|walmart|target|kroger|costco|whole\s*foods)\b/i;
+
 // Lines that are likely noise (not food items)
 const NOISE_PATTERNS = [
   // Store info & headers
+  STORE_NAMES,
   /supermarket/i,
   /\bltd\b/i,
   /\bplc\b/i,
@@ -19,6 +23,7 @@ const NOISE_PATTERNS = [
   /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/, // UK postcode
   /\b\d{5}(-\d{4})?\b/, // US zip code
   /live\s*well/i,
+  /for\s*less/i,
 
   // Transaction info
   /^(sub\s*total|subtotal|total|tax|vat|gst|hst|change|cash|card|visa|master|amex|debit|credit|eftpos|balance)/i,
@@ -34,6 +39,7 @@ const NOISE_PATTERNS = [
   /\bchange\s*due\b/i,
   /\bclub\s*card\b/i,
   /\bnectar\b/i,
+  /\bitems?\s*\d+\b/i,
 
   // Dates, times, pure numbers
   /^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/, // dates
@@ -49,16 +55,19 @@ const QTY_PREFIX = /^(\d+)\s*[xX×]\s*/;
 
 // Check if a line is mostly non-alpha characters (OCR garbage)
 function isMostlyGarbage(text: string): boolean {
-  const alphaCount = (text.match(/[a-zA-Z]/g) || []).length;
-  const ratio = alphaCount / text.length;
-  // If less than 40% of characters are letters, it's probably garbage
-  return ratio < 0.4;
+  const stripped = text.replace(/\s/g, '');
+  if (stripped.length === 0) return true;
+  const alphaCount = (stripped.match(/[a-zA-Z]/g) || []).length;
+  const ratio = alphaCount / stripped.length;
+  // If less than 60% of non-space characters are letters, it's probably garbage
+  return ratio < 0.6;
 }
 
-// Check if line looks like a price with currency (£1.25, $4.99 etc.)
-function isPriceLine(text: string): boolean {
-  // Line that is essentially just a price
-  return /^[\s\*]*[\$\£\€\¥]?\s*\d+[.,]\d{2}\s*$/.test(text);
+// Check if line has too few actual words (likely OCR fragments)
+function isTooFragmented(text: string): boolean {
+  const words = text.split(/\s+/).filter((w) => w.length >= 2 && /[a-zA-Z]{2,}/.test(w));
+  // If we don't have at least one real word of 3+ chars, skip
+  return !words.some((w) => w.replace(/[^a-zA-Z]/g, '').length >= 3);
 }
 
 export function parseReceiptText(rawText: string): ParsedReceiptItem[] {
@@ -72,28 +81,34 @@ export function parseReceiptText(rawText: string): ParsedReceiptItem[] {
     // Skip very short lines (likely noise)
     if (cleaned.length < 3) continue;
 
-    // Skip lines that are mostly non-alphabetic (OCR garbage like "Eo E— P", "= | Y")
-    if (isMostlyGarbage(cleaned)) continue;
+    // Skip lines starting with special characters (OCR artifacts)
+    if (/^[=\-~_|+<>@#\^]/.test(cleaned)) continue;
 
-    // Skip pure price lines
-    if (isPriceLine(cleaned)) continue;
+    // Strip trademark/registered/copyright symbols
+    cleaned = cleaned.replace(/[™®©]/g, '').trim();
+
+    // Skip lines that are mostly non-alphabetic (OCR garbage)
+    if (isMostlyGarbage(cleaned)) continue;
 
     // Check noise patterns
     const isNoise = NOISE_PATTERNS.some((pattern) => pattern.test(cleaned));
     if (isNoise) continue;
 
-    // Remove trailing prices (e.g., "QUAKER OATS £2.00", "ITEM 4.99", "ITEM £2.00 ——")
-    // Handle prices with trailing OCR artifacts like dashes, equals, letters
-    cleaned = cleaned.replace(/[\s]*[\$\£\€\¥]?\s*\d+[.,]\d{2}\s*[A-Za-z\-=~_—–]*\s*$/, '').trim();
+    // Remove trailing prices and any junk after them
+    // Matches: £4.00, $4.99, 4.99, followed by optional random chars/digits
+    cleaned = cleaned.replace(/[\s]*[\$\£\€\¥]?\s*\d+[.,]\d{2}\s*[\w\-=~_—–|\.]*\s*$/, '').trim();
 
-    // Remove leading asterisks (Sainsbury's uses * for age-restricted items)
+    // Remove leading asterisks (age-restricted item markers)
     cleaned = cleaned.replace(/^\*+\s*/, '').trim();
 
     // Remove leading item numbers/codes
     cleaned = cleaned.replace(/^\d{4,}\s+/, '').trim();
 
-    // Remove trailing OCR junk (random dashes, equals, pipes at the end)
+    // Remove trailing OCR junk (random dashes, equals, pipes, single chars at the end)
     cleaned = cleaned.replace(/[\s\-=~_—–|]+$/, '').trim();
+
+    // Remove trailing single letter/digit fragments (like lone "B" or "8")
+    cleaned = cleaned.replace(/\s+[A-Za-z0-9]$/, '').trim();
 
     // Skip if nothing left after cleanup
     if (cleaned.length < 3) continue;
@@ -103,6 +118,9 @@ export function parseReceiptText(rawText: string): ParsedReceiptItem[] {
 
     // Re-check garbage ratio after cleanup
     if (isMostlyGarbage(cleaned)) continue;
+
+    // Skip OCR fragments with no real words
+    if (isTooFragmented(cleaned)) continue;
 
     // Detect quantity prefix
     let quantity = 1;

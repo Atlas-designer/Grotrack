@@ -20,6 +20,12 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
   const [loading, setLoading] = useState(false);
 
   const selectedCount = items.filter((i) => i.selected).length;
+  const allSelected = selectedCount === items.length;
+
+  const toggleAll = () => {
+    const newSelected = !allSelected;
+    setItems((prev) => prev.map((item) => ({ ...item, selected: newSelected })));
+  };
 
   const toggleItem = (index: number) => {
     setItems((prev) =>
@@ -62,7 +68,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy-950 flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-navy-950 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-navy-900/80 backdrop-blur-lg border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">
@@ -79,6 +85,21 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-48">
+        {/* Select / Deselect All */}
+        {items.length > 0 && (
+          <button
+            onClick={toggleAll}
+            className="flex items-center gap-2 text-sm text-accent-400 hover:text-accent-300 transition-colors"
+          >
+            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+              allSelected ? 'bg-accent-400 border-accent-400' : 'border-gray-600'
+            }`}>
+              {allSelected && <Check size={12} className="text-navy-950" />}
+            </div>
+            {allSelected ? 'Deselect All' : 'Select All'}
+          </button>
+        )}
+
         {items.length === 0 ? (
           <div className="text-center py-16">
             <Package size={40} className="text-gray-600 mx-auto mb-3" />

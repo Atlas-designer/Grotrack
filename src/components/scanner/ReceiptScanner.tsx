@@ -81,7 +81,7 @@ export function ReceiptScanner({ isOpen, onClose }: ReceiptScannerProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy-950 flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-navy-950 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-navy-900/80 backdrop-blur-lg border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">

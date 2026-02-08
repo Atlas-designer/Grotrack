@@ -30,7 +30,7 @@ export function ItemActionSheet({ item, onClose }: ItemActionSheetProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-navy-900 w-full sm:max-w-md rounded-t-2xl border border-white/10 max-h-[70vh] overflow-y-auto">
