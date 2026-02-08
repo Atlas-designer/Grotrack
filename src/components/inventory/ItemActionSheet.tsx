@@ -3,7 +3,7 @@ import { X, ArrowRightLeft, LucideIcon } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
 import { useHouse } from '../../contexts/HouseContext';
-import { ICON_MAP } from './CompartmentGrid';
+import { ICON_MAP } from '../../utils/iconMap';
 import { Box } from 'lucide-react';
 
 interface ItemActionSheetProps {

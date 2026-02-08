@@ -1,45 +1,10 @@
 import { useState } from 'react';
-import {
-  Refrigerator,
-  Snowflake,
-  Home,
-  Cookie,
-  Wheat,
-  Droplets,
-  Wine,
-  Coffee,
-  Apple,
-  ShoppingBag,
-  Box,
-  Leaf,
-  Beef,
-  Fish,
-  Plus,
-  LucideIcon,
-  Pill,
-} from 'lucide-react';
+import { Plus, Box } from 'lucide-react';
 import { CompartmentType } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
 import { useHouse } from '../../contexts/HouseContext';
+import { ICON_MAP } from '../../utils/iconMap';
 import { AddCompartmentModal } from './AddCompartmentModal';
-
-export const ICON_MAP: Record<string, LucideIcon> = {
-  Refrigerator,
-  Snowflake,
-  Home,
-  Cookie,
-  Wheat,
-  Droplets,
-  Wine,
-  Coffee,
-  Apple,
-  ShoppingBag,
-  Box,
-  Pill,
-  Leaf,
-  Beef,
-  Fish,
-};
 
 interface CompartmentGridProps {
   onCompartmentClick: (compartment: CompartmentType) => void;

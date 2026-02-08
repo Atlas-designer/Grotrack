@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Check, LucideIcon } from 'lucide-react';
 import { useHouse } from '../../contexts/HouseContext';
-import { ICON_MAP } from './CompartmentGrid';
+import { ICON_MAP } from '../../utils/iconMap';
 
 interface AddCompartmentModalProps {
   isOpen: boolean;
