@@ -15,6 +15,7 @@ import { ExpiringBanner } from './components/inventory/ExpiringBanner';
 import { QuickStats } from './components/inventory/QuickStats';
 import { ShoppingListView } from './components/shopping/ShoppingListView';
 import { ProfileView } from './components/profile/ProfileView';
+import { ReceiptScanner } from './components/scanner/ReceiptScanner';
 import { CompartmentType } from './types';
 import { migrateLocalInventory } from './utils/migrateLocalData';
 import { Loader2 } from 'lucide-react';
@@ -39,6 +40,7 @@ function AppContent() {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedCompartment, setSelectedCompartment] = useState<CompartmentType | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>('home');
 
@@ -96,6 +98,7 @@ function AppContent() {
           <Header
             onSearchClick={() => setIsSearchOpen(true)}
             onAddClick={() => setIsAddModalOpen(true)}
+            onScanClick={() => setIsScannerOpen(true)}
           />
           <ExpiringBanner />
           <QuickStats />
@@ -115,6 +118,7 @@ function AppContent() {
       {activeTab === 'profile' && <ProfileView />}
 
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <ReceiptScanner isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
     </div>
   );
 }

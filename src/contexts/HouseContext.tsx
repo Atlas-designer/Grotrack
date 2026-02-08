@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import {
   doc,
+  getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   arrayUnion,
   arrayRemove,
   collection,
@@ -10,10 +12,11 @@ import {
   where,
   getDocs,
   onSnapshot,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
-import { House, UserProfile } from '../types';
+import { House, UserProfile, Compartment, DEFAULT_COMPARTMENTS } from '../types';
 
 interface HouseContextValue {
   activeHouse: House | null;
@@ -21,10 +24,15 @@ interface HouseContextValue {
   houses: House[];
   userProfile: UserProfile | null;
   loading: boolean;
+  compartments: Compartment[];
   createHouse: (name: string) => Promise<string>;
   joinHouse: (inviteCode: string) => Promise<void>;
   switchHouse: (houseId: string) => Promise<void>;
   leaveHouse: (houseId: string) => Promise<void>;
+  deleteHouse: (houseId: string) => Promise<void>;
+  removeMember: (houseId: string, memberUid: string) => Promise<void>;
+  addCompartment: (compartment: Omit<Compartment, 'id'>) => Promise<void>;
+  removeCompartment: (compartmentId: string) => Promise<void>;
 }
 
 const HouseContext = createContext<HouseContextValue | null>(null);
@@ -38,6 +46,10 @@ function generateInviteCode(): string {
   return code;
 }
 
+function generateCompartmentId(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now().toString(36);
+}
+
 export function HouseProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -45,6 +57,9 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const [activeHouseId, setActiveHouseId] = useState<string | null>(null);
   const [houses, setHouses] = useState<House[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Derive compartments from active house or fall back to defaults
+  const compartments = activeHouse?.compartments ?? DEFAULT_COMPARTMENTS;
 
   // Load user profile when auth changes
   useEffect(() => {
@@ -125,6 +140,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       createdBy: user.uid,
       members: [user.uid],
       createdAt: new Date().toISOString(),
+      compartments: DEFAULT_COMPARTMENTS,
     });
 
     // Update user profile
@@ -182,6 +198,104 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const deleteHouse = async (houseId: string) => {
+    if (!user) throw new Error('Not authenticated');
+
+    // Verify ownership
+    const houseSnap = await getDoc(doc(db, 'houses', houseId));
+    if (!houseSnap.exists()) throw new Error('House not found');
+    const houseData = houseSnap.data();
+    if (houseData.createdBy !== user.uid) throw new Error('Only the house creator can delete it');
+
+    const members: string[] = houseData.members || [];
+
+    // Remove house from all members' profiles
+    for (const memberUid of members) {
+      const memberRef = doc(db, 'users', memberUid);
+      const memberSnap = await getDoc(memberRef);
+      if (memberSnap.exists()) {
+        const memberData = memberSnap.data() as UserProfile;
+        const updates: Record<string, unknown> = { houses: arrayRemove(houseId) };
+        if (memberData.activeHouseId === houseId) {
+          const remaining = memberData.houses.filter((h) => h !== houseId);
+          updates.activeHouseId = remaining.length > 0 ? remaining[0] : null;
+        }
+        await updateDoc(memberRef, updates);
+      }
+    }
+
+    // Delete inventory subcollection
+    const inventorySnap = await getDocs(collection(db, 'houses', houseId, 'inventory'));
+    if (!inventorySnap.empty) {
+      const batch = writeBatch(db);
+      inventorySnap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    // Delete shopping list subcollection
+    const shoppingSnap = await getDocs(collection(db, 'houses', houseId, 'shoppingList'));
+    if (!shoppingSnap.empty) {
+      const batch = writeBatch(db);
+      shoppingSnap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    // Delete house doc
+    await deleteDoc(doc(db, 'houses', houseId));
+  };
+
+  const removeMember = async (houseId: string, memberUid: string) => {
+    if (!user) throw new Error('Not authenticated');
+
+    // Verify ownership
+    const houseSnap = await getDoc(doc(db, 'houses', houseId));
+    if (!houseSnap.exists()) throw new Error('House not found');
+    if (houseSnap.data().createdBy !== user.uid) throw new Error('Only the house creator can remove members');
+    if (memberUid === user.uid) throw new Error('Cannot remove yourself');
+
+    // Remove member from house
+    await updateDoc(doc(db, 'houses', houseId), {
+      members: arrayRemove(memberUid),
+    });
+
+    // Remove house from member's profile
+    const memberRef = doc(db, 'users', memberUid);
+    const memberSnap = await getDoc(memberRef);
+    if (memberSnap.exists()) {
+      const memberData = memberSnap.data() as UserProfile;
+      const updates: Record<string, unknown> = { houses: arrayRemove(houseId) };
+      if (memberData.activeHouseId === houseId) {
+        const remaining = memberData.houses.filter((h) => h !== houseId);
+        updates.activeHouseId = remaining.length > 0 ? remaining[0] : null;
+      }
+      await updateDoc(memberRef, updates);
+    }
+  };
+
+  const addCompartment = async (compartment: Omit<Compartment, 'id'>) => {
+    if (!user || !activeHouseId) throw new Error('Not authenticated or no active house');
+
+    const newCompartment: Compartment = {
+      id: generateCompartmentId(compartment.name),
+      ...compartment,
+    };
+
+    const current = activeHouse?.compartments ?? DEFAULT_COMPARTMENTS;
+    await updateDoc(doc(db, 'houses', activeHouseId), {
+      compartments: [...current, newCompartment],
+    });
+  };
+
+  const removeCompartment = async (compartmentId: string) => {
+    if (!user || !activeHouseId) throw new Error('Not authenticated or no active house');
+
+    const current = activeHouse?.compartments ?? DEFAULT_COMPARTMENTS;
+    const updated = current.filter((c) => c.id !== compartmentId);
+    await updateDoc(doc(db, 'houses', activeHouseId), {
+      compartments: updated,
+    });
+  };
+
   return (
     <HouseContext.Provider
       value={{
@@ -190,10 +304,15 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         houses,
         userProfile,
         loading,
+        compartments,
         createHouse,
         joinHouse,
         switchHouse,
         leaveHouse,
+        deleteHouse,
+        removeMember,
+        addCompartment,
+        removeCompartment,
       }}
     >
       {children}

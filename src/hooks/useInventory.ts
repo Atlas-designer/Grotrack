@@ -28,5 +28,11 @@ export function useInventory() {
 
     clearAll: () =>
       activeHouseId ? store.clearAll(activeHouseId) : Promise.resolve(),
+
+    clearCompartment: (compartment: CompartmentType) =>
+      activeHouseId ? store.clearCompartment(activeHouseId, compartment) : Promise.resolve(),
+
+    batchAddItems: (items: Omit<InventoryItem, 'id' | 'purchaseDate'>[]) =>
+      activeHouseId ? store.batchAddItems(activeHouseId, items) : Promise.resolve(),
   };
 }

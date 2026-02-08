@@ -4,10 +4,10 @@ import {
   CompartmentType,
   FoodCategory,
   UnitType,
-  DEFAULT_COMPARTMENTS,
   EXPIRATION_DEFAULTS
 } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
+import { useHouse } from '../../contexts/HouseContext';
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -42,6 +42,7 @@ const labelClasses = 'block text-sm font-medium text-gray-400 mb-1.5';
 
 export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemModalProps) {
   const { addItem } = useInventory();
+  const { compartments } = useHouse();
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -153,7 +154,7 @@ export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemMod
               onChange={(e) => setCompartment(e.target.value as CompartmentType)}
               className={inputClasses}
             >
-              {DEFAULT_COMPARTMENTS.map((c) => (
+              {compartments.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>

@@ -1,5 +1,6 @@
 import { Package, ShoppingCart, Trash2 } from 'lucide-react';
-import { InventoryItem, DEFAULT_COMPARTMENTS } from '../../types';
+import { InventoryItem } from '../../types';
+import { useHouse } from '../../contexts/HouseContext';
 
 interface InventoryMatchNoticeProps {
   matchedItem: InventoryItem;
@@ -14,7 +15,8 @@ export function InventoryMatchNotice({
   onRemoveFromInventory,
   onCancel,
 }: InventoryMatchNoticeProps) {
-  const compartment = DEFAULT_COMPARTMENTS.find((c) => c.id === matchedItem.compartment);
+  const { compartments } = useHouse();
+  const compartment = compartments.find((c) => c.id === matchedItem.compartment);
 
   const daysLeft = Math.ceil(
     (new Date(matchedItem.expirationDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)

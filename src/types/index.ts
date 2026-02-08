@@ -1,10 +1,4 @@
-export type CompartmentType =
-  | 'fridge'
-  | 'freezer'
-  | 'pantry'
-  | 'snacks'
-  | 'dry-ingredients'
-  | 'wet-ingredients';
+export type CompartmentType = string;
 
 export type FoodCategory =
   | 'dairy'
@@ -34,7 +28,7 @@ export interface InventoryItem {
 }
 
 export interface Compartment {
-  id: CompartmentType;
+  id: string;
   name: string;
   icon: string;
   color: string;
@@ -71,6 +65,7 @@ export interface House {
   createdBy: string;
   members: string[];
   createdAt: string;
+  compartments?: Compartment[];
 }
 
 // User profile stored in Firestore

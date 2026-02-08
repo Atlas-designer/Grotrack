@@ -1,4 +1,4 @@
-import { Trash2, Edit2, Package } from 'lucide-react';
+import { Trash2, Edit2, Package, ArrowRightLeft } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
 
@@ -6,9 +6,10 @@ interface ItemCardProps {
   item: InventoryItem;
   compact?: boolean;
   onEdit?: (item: InventoryItem) => void;
+  onMove?: (item: InventoryItem) => void;
 }
 
-export function ItemCard({ item, compact = false, onEdit }: ItemCardProps) {
+export function ItemCard({ item, compact = false, onEdit, onMove }: ItemCardProps) {
   const { removeItem } = useInventory();
 
   const getExpiryStatus = () => {
@@ -69,6 +70,15 @@ export function ItemCard({ item, compact = false, onEdit }: ItemCardProps) {
           </span>
 
           <div className="flex gap-1">
+            {onMove && (
+              <button
+                onClick={() => onMove(item)}
+                className="p-1.5 text-gray-500 hover:text-accent-400 hover:bg-white/5 rounded-lg"
+                aria-label="Move item"
+              >
+                <ArrowRightLeft size={16} />
+              </button>
+            )}
             {onEdit && (
               <button
                 onClick={() => onEdit(item)}

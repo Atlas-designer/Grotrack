@@ -1,15 +1,20 @@
 import { useState } from 'react';
-import { LogOut, Home, Users, Plus, Copy, Check, ArrowRight } from 'lucide-react';
+import { LogOut, Home, Users, Plus, Copy, Check, ArrowRight, Trash2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHouse } from '../../contexts/HouseContext';
+import { House } from '../../types';
 import { CreateHouseModal } from './CreateHouseModal';
 import { JoinHouseModal } from './JoinHouseModal';
+import { DeleteHouseModal } from './DeleteHouseModal';
+import { MemberList } from './MemberList';
+import { InventoryManagement } from './InventoryManagement';
 
 export function ProfileView() {
   const { user, signOut } = useAuth();
   const { activeHouse, activeHouseId, houses, switchHouse, userProfile } = useHouse();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [deleteHouse, setDeleteHouse] = useState<House | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
 
   const handleCopyCode = async () => {
@@ -19,7 +24,6 @@ export function ProfileView() {
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
     } catch {
-      // Fallback for older browsers
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
     }
@@ -84,8 +88,17 @@ export function ProfileView() {
                 )}
               </button>
             </div>
+
+            {/* Members */}
+            <div className="pt-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Members</p>
+              <MemberList />
+            </div>
           </div>
         )}
+
+        {/* Inventory Management */}
+        {activeHouse && <InventoryManagement />}
 
         {/* All houses */}
         {houses.length > 0 && (
@@ -93,6 +106,7 @@ export function ProfileView() {
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Your Houses</p>
             {houses.map((house) => {
               const isActive = house.id === activeHouseId;
+              const canDelete = house.createdBy === user?.uid;
               return (
                 <div
                   key={house.id}
@@ -117,18 +131,28 @@ export function ProfileView() {
                       {house.members.length} {house.members.length === 1 ? 'member' : 'members'}
                     </p>
                   </div>
-                  {isActive ? (
-                    <span className="text-xs text-accent-400 font-medium px-2 py-1 bg-accent-400/10 rounded-lg">
-                      Active
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => switchHouse(house.id)}
-                      className="text-xs text-gray-400 hover:text-white px-3 py-1.5 bg-navy-700 rounded-lg hover:bg-navy-600 transition-colors"
-                    >
-                      Switch
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {isActive ? (
+                      <span className="text-xs text-accent-400 font-medium px-2 py-1 bg-accent-400/10 rounded-lg">
+                        Active
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => switchHouse(house.id)}
+                        className="text-xs text-gray-400 hover:text-white px-3 py-1.5 bg-navy-700 rounded-lg hover:bg-navy-600 transition-colors"
+                      >
+                        Switch
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => setDeleteHouse(house)}
+                        className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -172,6 +196,13 @@ export function ProfileView() {
 
       <CreateHouseModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} />
       <JoinHouseModal isOpen={showJoinModal} onClose={() => setShowJoinModal(false)} />
+      {deleteHouse && (
+        <DeleteHouseModal
+          isOpen={!!deleteHouse}
+          onClose={() => setDeleteHouse(null)}
+          house={deleteHouse}
+        />
+      )}
     </div>
   );
 }

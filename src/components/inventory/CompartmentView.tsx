@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
-import { CompartmentType, DEFAULT_COMPARTMENTS } from '../../types';
+import { CompartmentType, InventoryItem } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
+import { useHouse } from '../../contexts/HouseContext';
 import { ItemCard } from './ItemCard';
+import { ItemActionSheet } from './ItemActionSheet';
 
 interface CompartmentViewProps {
   compartment: CompartmentType;
@@ -11,8 +14,10 @@ interface CompartmentViewProps {
 
 export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentViewProps) {
   const { items } = useInventory();
-  const compartmentInfo = DEFAULT_COMPARTMENTS.find((c) => c.id === compartment);
+  const { compartments } = useHouse();
+  const compartmentInfo = compartments.find((c) => c.id === compartment);
   const compartmentItems = items.filter((item) => item.compartment === compartment);
+  const [moveItem, setMoveItem] = useState<InventoryItem | null>(null);
 
   return (
     <div className="min-h-screen bg-navy-950">
@@ -57,11 +62,15 @@ export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentV
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {compartmentItems.map((item) => (
-              <ItemCard key={item.id} item={item} />
+              <ItemCard key={item.id} item={item} onMove={setMoveItem} />
             ))}
           </div>
         )}
       </div>
+
+      {moveItem && (
+        <ItemActionSheet item={moveItem} onClose={() => setMoveItem(null)} />
+      )}
     </div>
   );
 }

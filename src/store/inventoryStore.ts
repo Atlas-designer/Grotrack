@@ -36,6 +36,8 @@ interface InventoryState {
   getItemsByCompartment: (compartment: CompartmentType) => InventoryItem[];
   getExpiringItems: (daysThreshold?: number) => InventoryItem[];
   clearAll: (houseId: string) => Promise<void>;
+  clearCompartment: (houseId: string, compartment: CompartmentType) => Promise<void>;
+  batchAddItems: (houseId: string, items: Omit<InventoryItem, 'id' | 'purchaseDate'>[]) => Promise<void>;
 }
 
 export const useInventoryStore = create<InventoryState>()((set, get) => ({
@@ -102,6 +104,30 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
     const batch = writeBatch(db);
     items.forEach((item) => {
       batch.delete(doc(db, 'houses', houseId, 'inventory', item.id));
+    });
+    await batch.commit();
+  },
+
+  clearCompartment: async (houseId, compartment) => {
+    const items = get().items.filter((item) => item.compartment === compartment);
+    const batch = writeBatch(db);
+    items.forEach((item) => {
+      batch.delete(doc(db, 'houses', houseId, 'inventory', item.id));
+    });
+    await batch.commit();
+  },
+
+  batchAddItems: async (houseId, itemsToAdd) => {
+    const batch = writeBatch(db);
+    const colRef = collection(db, 'houses', houseId, 'inventory');
+    itemsToAdd.forEach((itemData) => {
+      const docRef = doc(colRef);
+      batch.set(docRef, {
+        ...itemData,
+        purchaseDate: new Date().toISOString().split('T')[0],
+        expirationDate: itemData.expirationDate || calculateExpirationDate(itemData.category),
+        addedBy: auth.currentUser?.uid || '',
+      });
     });
     await batch.commit();
   },
