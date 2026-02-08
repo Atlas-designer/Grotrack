@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
-import { House, UserProfile, Compartment, DEFAULT_COMPARTMENTS } from '../types';
+import { House, UserProfile, Compartment, FoodInfo, DEFAULT_COMPARTMENTS } from '../types';
 
 interface HouseContextValue {
   activeHouse: House | null;
@@ -25,6 +25,8 @@ interface HouseContextValue {
   userProfile: UserProfile | null;
   loading: boolean;
   compartments: Compartment[];
+  foodMappings: Record<string, FoodInfo>;
+  nameCorrections: Record<string, string>;
   createHouse: (name: string) => Promise<string>;
   joinHouse: (inviteCode: string) => Promise<void>;
   switchHouse: (houseId: string) => Promise<void>;
@@ -33,6 +35,8 @@ interface HouseContextValue {
   removeMember: (houseId: string, memberUid: string) => Promise<void>;
   addCompartment: (compartment: Omit<Compartment, 'id'>) => Promise<void>;
   removeCompartment: (compartmentId: string) => Promise<void>;
+  saveFoodMapping: (itemName: string, info: FoodInfo) => Promise<void>;
+  saveNameCorrection: (original: string, corrected: string) => Promise<void>;
 }
 
 const HouseContext = createContext<HouseContextValue | null>(null);
@@ -60,6 +64,10 @@ export function HouseProvider({ children }: { children: ReactNode }) {
 
   // Derive compartments from active house or fall back to defaults
   const compartments = activeHouse?.compartments ?? DEFAULT_COMPARTMENTS;
+
+  // Derive food mappings from active house
+  const foodMappings = activeHouse?.foodMappings ?? {};
+  const nameCorrections = activeHouse?.nameCorrections ?? {};
 
   // Load user profile when auth changes
   useEffect(() => {
@@ -296,6 +304,22 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const saveFoodMapping = async (itemName: string, info: FoodInfo) => {
+    if (!user || !activeHouseId) throw new Error('Not authenticated or no active house');
+    const current = activeHouse?.foodMappings ?? {};
+    await updateDoc(doc(db, 'houses', activeHouseId), {
+      foodMappings: { ...current, [itemName.toLowerCase().trim()]: info },
+    });
+  };
+
+  const saveNameCorrection = async (original: string, corrected: string) => {
+    if (!user || !activeHouseId) throw new Error('Not authenticated or no active house');
+    const current = activeHouse?.nameCorrections ?? {};
+    await updateDoc(doc(db, 'houses', activeHouseId), {
+      nameCorrections: { ...current, [original.toLowerCase().trim()]: corrected },
+    });
+  };
+
   return (
     <HouseContext.Provider
       value={{
@@ -305,6 +329,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         userProfile,
         loading,
         compartments,
+        foodMappings,
+        nameCorrections,
         createHouse,
         joinHouse,
         switchHouse,
@@ -313,6 +339,8 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         removeMember,
         addCompartment,
         removeCompartment,
+        saveFoodMapping,
+        saveNameCorrection,
       }}
     >
       {children}

@@ -57,6 +57,13 @@ export const EXPIRATION_DEFAULTS: Record<FoodCategory, number> = {
   'other': 30,
 };
 
+// Food info for smart categorization
+export interface FoodInfo {
+  category: FoodCategory;
+  compartment: string;
+  expiryDays: number;
+}
+
 // House / Household
 export interface House {
   id: string;
@@ -66,6 +73,8 @@ export interface House {
   members: string[];
   createdAt: string;
   compartments?: Compartment[];
+  foodMappings?: Record<string, FoodInfo>;
+  nameCorrections?: Record<string, string>;
 }
 
 // User profile stored in Firestore
