@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-navy-950 text-white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Mobile-first scrolling */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth transitions */
+.transition-default {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+/* Card hover effects */
+.card-hover {
+  @apply hover:scale-[1.03] hover:shadow-xl transition-all duration-200;
+}
+
+/* Expiration status colors */
+.expiry-safe {
+  @apply text-emerald-400 bg-emerald-400/15;
+}
+
+.expiry-warning {
+  @apply text-amber-400 bg-amber-400/15;
+}
+
+.expiry-danger {
+  @apply text-red-400 bg-red-400/15;
+}
+
+.expiry-expired {
+  @apply text-gray-500 bg-gray-500/15 line-through;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-navy-600 rounded-full;
+}
