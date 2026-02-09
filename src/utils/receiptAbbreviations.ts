@@ -2,6 +2,63 @@
 // Maps lowercase abbreviated forms to their expanded versions
 // Includes both word-level abbreviations and multi-word shortcuts
 
+// ── Supermarket own-brand prefixes (sorted longest-first) ──────────────
+// These appear at the start of receipt lines and should be stripped to get
+// the actual product name. Covers Sainsbury's sub-brands and other UK stores.
+const BRAND_PREFIXES: string[] = [
+  "hubbard's foodstore",
+  'imperfectly tasty',
+  "mary ann's dairy",
+  'mary ann dairies',
+  'stamford street',
+  "j.james & family",
+  'mary ann dairy',
+  "by sainsbury's",
+  'by sainsburys',
+  "greengrocer's",
+  'greengrocer',
+  'premier deli',
+  'dairy pride',
+  "fisherman's",
+  'wild valley',
+  "sainsbury's",
+  'sainsburys',
+  'mary ann d',
+  'just snax',
+  'house 24/7',
+  'house 247',
+  'fisherman',
+  "hubbard's",
+  'hubbards',
+  "lovett's",
+  'lovetts',
+  'allcroft',
+  'j.james',
+  'j james',
+  "daily's",
+  'scottish',
+  'novon',
+  'crown',
+  'jjf',
+  'jj',
+  'js',
+];
+
+// SKU jargon words that should be stripped entirely — they describe
+// product characteristics for stock purposes but aren't useful for users
+const SKU_JARGON = new Set([
+  'fc',       // From Concentrate
+  'nas',      // No Added Sugar
+  'cw',       // Counter Weight (variable weight)
+  'cwt',      // Counter Weight
+  'dblecon',  // Double Concentrate
+  'mps',      // Multi Pack Saver
+  'ttd',      // Taste the Difference (Sainsbury's premium)
+  'bol',      // Bag of Life
+  'bfm',      // Butchers Fresh Meat
+  'std',      // Standard
+]);
+
 const WORD_ABBREVIATIONS: Record<string, string> = {
   // Proteins
   'chckn': 'chicken',
@@ -262,6 +319,54 @@ const WORD_ABBREVIATIONS: Record<string, string> = {
   'cndtnr': 'conditioner',
   'dtrgrnt': 'detergent',
   'dtrgt': 'detergent',
+
+  // Sainsbury's SKU abbreviations
+  'chdr': 'cheddar',
+  'sndwch': 'sandwich',
+  'sndwh': 'sandwich',
+  'mrgr': 'margarine',
+  'mrgrne': 'margarine',
+  'sprd': 'spread',
+  'crptt': 'crumpet',
+  'brgr': 'burger',
+  'brgrs': 'burgers',
+  'nugts': 'nuggets',
+  'nuggts': 'nuggets',
+  'ptchd': 'poached',
+  'scrmbld': 'scrambled',
+  'mcrni': 'macaroni',
+  'lsgn': 'lasagne',
+  'bolog': 'bolognese',
+  'shrbrry': 'strawberry',
+  'trpcl': 'tropical',
+  'mnrl': 'mineral',
+  'sprklng': 'sparkling',
+  'sprkl': 'sparkling',
+  'flvrd': 'flavoured',
+  'flvr': 'flavour',
+  'ctge': 'cottage',
+  'dbl': 'double',
+  'sngl': 'single',
+  'mld': 'mild',
+  'mtre': 'mature',
+  'xmtre': 'extra mature',
+  'vnla': 'vanilla',
+  'chry': 'cherry',
+  'strwby': 'strawberry',
+  'raspby': 'raspberry',
+  'bbq': 'barbecue',
+  'gar': 'garlic',
+  'mhrm': 'mushroom',
+  'mshrmm': 'mushroom',
+  'tna': 'tuna',
+  'swdsh': 'swordfish',
+  'cddck': 'haddock',
+  'hddck': 'haddock',
+  'clmn': 'salmon',
+  'pncrta': 'pancetta',
+  'prsctt': 'prosciutto',
+  'chrzio': 'chorizo',
+  'chrzo': 'chorizo',
 };
 
 // Multi-word phrase abbreviations (checked before word-level)
@@ -307,8 +412,13 @@ const PHRASE_ABBREVIATIONS: Record<string, string> = {
 
 /**
  * Expand receipt abbreviations in an item name.
- * Checks custom user corrections first, then built-in phrase abbreviations,
- * then word-level abbreviations.
+ * 1. Check custom user corrections (exact match)
+ * 2. Strip supermarket brand prefixes (JS, HUBBARDS, etc.)
+ * 3. Strip weight/size suffixes (200G, 2L, X4, etc.)
+ * 4. Remove SKU jargon words (FC, NAS, CW, etc.)
+ * 5. Expand phrase abbreviations
+ * 6. Expand word-level abbreviations
+ * 7. Title case
  */
 export function expandReceiptName(
   name: string,
@@ -323,22 +433,44 @@ export function expandReceiptName(
 
   let expanded = normalized;
 
-  // 2. Check phrase abbreviations
+  // 2. Strip known supermarket brand prefixes
+  for (const prefix of BRAND_PREFIXES) {
+    if (expanded.startsWith(prefix + ' ') || expanded.startsWith(prefix + "'s ")) {
+      expanded = expanded.slice(
+        expanded.indexOf(' ', prefix.length - 1) + 1
+      ).trim();
+      break; // Only strip one prefix
+    }
+  }
+
+  // 3. Strip weight/size suffixes (200G, 1.5KG, 500ML, 2L, 75CL, 1LTR, etc.)
+  expanded = expanded.replace(/\b\d+(\.\d+)?\s*(kg|g|ml|l|ltr|ltrs|cl|oz|lb|pt|pnt|fl)\b/gi, '').trim();
+  // Strip multipack patterns: X4, X6, X12
+  expanded = expanded.replace(/\bx\s*\d+\b/gi, '').trim();
+  // Strip pack sizes: 10PK, 6PCK, 4PACK
+  expanded = expanded.replace(/\b\d+\s*(pk|pck|pack)\b/gi, '').trim();
+
+  // 4. Check phrase abbreviations
   for (const [abbr, full] of Object.entries(PHRASE_ABBREVIATIONS)) {
     const regex = new RegExp(`\\b${escapeRegex(abbr)}\\b`, 'gi');
     expanded = expanded.replace(regex, full);
   }
 
-  // 3. Apply word-level abbreviations
+  // 5. Apply word-level abbreviations + strip SKU jargon
   expanded = expanded
     .split(/\s+/)
     .map((word) => {
       const lower = word.toLowerCase().replace(/[^a-z/]/g, '');
+      if (SKU_JARGON.has(lower)) return ''; // Strip jargon words
       return WORD_ABBREVIATIONS[lower] || word;
     })
+    .filter(Boolean)
     .join(' ');
 
-  // 4. Title case the result
+  // 6. Clean up any double spaces and trim
+  expanded = expanded.replace(/\s{2,}/g, ' ').trim();
+
+  // 7. Title case the result
   return expanded
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();

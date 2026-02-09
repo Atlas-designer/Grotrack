@@ -110,6 +110,11 @@ export function parseReceiptText(rawText: string): ParsedReceiptItem[] {
     // Remove trailing single letter/digit fragments (like lone "B" or "8")
     cleaned = cleaned.replace(/\s+[A-Za-z0-9]$/, '').trim();
 
+    // Strip weight/size suffixes (200G, 1.5KG, 500ML, 2L, X4, 10PK)
+    cleaned = cleaned.replace(/\b\d+(\.\d+)?\s*(kg|g|ml|l|ltr|ltrs|cl|oz|lb|pt|fl)\b/gi, '').trim();
+    cleaned = cleaned.replace(/\bx\s*\d+\b/gi, '').trim();
+    cleaned = cleaned.replace(/\b\d+\s*(pk|pck|pack)\b/gi, '').trim();
+
     // Skip if nothing left after cleanup
     if (cleaned.length < 3) continue;
 
