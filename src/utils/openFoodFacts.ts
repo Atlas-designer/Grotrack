@@ -1,12 +1,20 @@
 // Open Food Facts API utility for fetching product images
-// API docs: https://openfoodfacts.github.io/openfoodfacts-server/api/
+// Uses the newer Elasticsearch-based search API for reliability
 
-const BASE_URL = 'https://world.openfoodfacts.org';
+const SEARCH_URL = 'https://search.openfoodfacts.org/search';
+const PRODUCT_URL = 'https://world.openfoodfacts.org/api/v2/product';
 const SEARCH_FIELDS = 'code,product_name,brands,image_front_small_url,image_front_url';
+const FETCH_TIMEOUT = 8000; // 8 second timeout
 
 // Rate limiting: max 10 searches/min
 let lastSearchTime = 0;
-const MIN_SEARCH_INTERVAL = 6500; // 6.5s between searches to stay under 10/min
+const MIN_SEARCH_INTERVAL = 6500;
+
+function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
 
 async function rateLimitedFetch(url: string): Promise<Response> {
   const now = Date.now();
@@ -15,7 +23,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
     await new Promise((r) => setTimeout(r, MIN_SEARCH_INTERVAL - elapsed));
   }
   lastSearchTime = Date.now();
-  return fetch(url);
+  return fetchWithTimeout(url);
 }
 
 export interface OFFProduct {
@@ -35,15 +43,12 @@ export async function searchProductImage(name: string): Promise<string | null> {
 
   try {
     const params = new URLSearchParams({
-      search_terms: name.trim(),
-      action: 'process',
-      json: '1',
-      page_size: '5',
-      sort_by: 'unique_scans_n',
+      q: name.trim(),
       fields: SEARCH_FIELDS,
+      page_size: '5',
     });
 
-    const url = `${BASE_URL}/cgi/search.pl?${params}`;
+    const url = `${SEARCH_URL}?${params}`;
     console.log('[OFF] Searching:', name.trim());
     const res = await rateLimitedFetch(url);
 
@@ -53,7 +58,7 @@ export async function searchProductImage(name: string): Promise<string | null> {
     }
 
     const data = await res.json();
-    const products: OFFProduct[] = data.products || [];
+    const products: OFFProduct[] = data.hits || data.products || [];
     console.log('[OFF] Found', products.length, 'products for', name.trim());
 
     // Find the first product that has an image and a name
@@ -82,8 +87,8 @@ export async function lookupBarcode(
   if (!barcode) return null;
 
   try {
-    const res = await fetch(
-      `${BASE_URL}/api/v2/product/${barcode}.json?fields=${SEARCH_FIELDS}`
+    const res = await fetchWithTimeout(
+      `${PRODUCT_URL}/${barcode}.json?fields=${SEARCH_FIELDS}`
     );
     if (!res.ok) return null;
 
@@ -115,7 +120,6 @@ export async function batchFetchImages(
 ): Promise<Record<string, string>> {
   const results: Record<string, string> = {};
 
-  // First, resolve from cache
   const uncached: string[] = [];
   for (const name of names) {
     const key = name.toLowerCase().trim();
@@ -126,7 +130,6 @@ export async function batchFetchImages(
     }
   }
 
-  // Fetch uncached items from API (rate-limited, sequential)
   for (const name of uncached) {
     const imageUrl = await searchProductImage(name);
     if (imageUrl) {
