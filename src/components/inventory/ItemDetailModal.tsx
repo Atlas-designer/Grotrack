@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { X, Minus, Plus, ShoppingCart } from 'lucide-react';
-import { InventoryItem } from '../../types';
+import { InventoryItem, ItemLabel } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
 import { useShoppingList } from '../../hooks/useShoppingList';
 import { getFoodIcon } from '../../utils/foodIcons';
+import { LABEL_COLORS } from '../../utils/labelColors';
 
 interface ItemDetailModalProps {
   item: InventoryItem;
@@ -17,6 +18,7 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
   const [quantity, setQuantity] = useState(item.quantity);
   const [expirationDate, setExpirationDate] = useState(item.expirationDate);
   const [opened, setOpened] = useState(item.opened ?? false);
+  const [label, setLabel] = useState<ItemLabel | undefined>(item.label);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -42,7 +44,6 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
     const newOpened = !opened;
     setOpened(newOpened);
     if (newOpened) {
-      // Set expiry to 3 days from now, unless current expiry is already sooner
       const threeDaysFromNow = new Date();
       threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
       const threeDaysStr = threeDaysFromNow.toISOString().split('T')[0];
@@ -56,7 +57,8 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
     name !== item.name ||
     quantity !== item.quantity ||
     expirationDate !== item.expirationDate ||
-    opened !== (item.opened ?? false);
+    opened !== (item.opened ?? false) ||
+    label !== item.label;
 
   const handleSave = async () => {
     if (!hasChanges) {
@@ -70,6 +72,7 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
         quantity,
         expirationDate,
         opened,
+        label: label || undefined,
       });
       onClose();
     } finally {
@@ -102,9 +105,9 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-navy-900 w-full max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl border border-white/10 overflow-hidden">
+      <div className="relative bg-navy-900 w-full max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl border border-white/10 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 flex-shrink-0">
           <h2 className="text-lg font-bold text-white">Item Details</h2>
           <button
             onClick={onClose}
@@ -114,7 +117,7 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
           </button>
         </div>
 
-        <div className="p-5 space-y-5">
+        <div className="p-5 space-y-5 overflow-y-auto flex-1">
           {/* Item icon */}
           <div className="flex justify-center">
             <div className="w-20 h-20 bg-navy-800 rounded-2xl flex items-center justify-center border border-white/5">
@@ -165,6 +168,33 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
               onChange={(e) => setExpirationDate(e.target.value)}
               className="w-full px-3 py-2.5 bg-navy-800 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-accent-400/50 [color-scheme:dark]"
             />
+          </div>
+
+          {/* Color label */}
+          <div>
+            <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1.5">Label</label>
+            <div className="flex items-center gap-2">
+              {/* None option */}
+              <button
+                onClick={() => setLabel(undefined)}
+                className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                  !label ? 'border-white/40 bg-navy-700' : 'border-white/10 bg-navy-800 hover:border-white/20'
+                }`}
+              >
+                {!label && <X size={12} className="text-gray-400" />}
+              </button>
+              {LABEL_COLORS.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setLabel(c.id)}
+                  className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                    label === c.id ? `${c.border} ${c.bg}` : 'border-white/10 bg-navy-800 hover:border-white/20'
+                  }`}
+                >
+                  <div className={`w-4 h-4 rounded-full ${c.dot}`} />
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Opened toggle */}

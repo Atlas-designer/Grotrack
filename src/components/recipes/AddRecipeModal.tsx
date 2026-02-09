@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { RecipeIngredient, RecipeTag, UnitType, Recipe } from '../../types';
 import { useRecipes } from '../../hooks/useRecipes';
@@ -24,7 +24,9 @@ interface AddRecipeModalProps {
 }
 
 export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModalProps) {
-  const { addRecipe, updateRecipe } = useRecipes();
+  const { addRecipe, updateRecipe, saveBuiltInAsCustom } = useRecipes();
+  const stepsEndRef = useRef<HTMLDivElement>(null);
+  const ingredientsEndRef = useRef<HTMLDivElement>(null);
 
   const [name, setName] = useState(editingRecipe?.name || '');
   const [emoji, setEmoji] = useState(editingRecipe?.emoji || '🍳');
@@ -46,6 +48,7 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
 
   const handleAddIngredient = () => {
     setIngredients([...ingredients, { name: '', quantity: 1, unit: 'pieces' }]);
+    setTimeout(() => ingredientsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   };
 
   const handleRemoveIngredient = (idx: number) => {
@@ -60,6 +63,7 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
 
   const handleAddStep = () => {
     setInstructions([...instructions, '']);
+    setTimeout(() => stepsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   };
 
   const handleRemoveStep = (idx: number) => {
@@ -96,7 +100,11 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
       };
 
       if (editingRecipe) {
-        await updateRecipe(editingRecipe.id, recipeData);
+        if (editingRecipe.source === 'built-in') {
+          await saveBuiltInAsCustom(editingRecipe, recipeData);
+        } else {
+          await updateRecipe(editingRecipe.id, recipeData);
+        }
       } else {
         await addRecipe(recipeData);
       }
@@ -117,6 +125,7 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
             {editingRecipe ? 'Edit Recipe' : 'New Recipe'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
           >
@@ -132,6 +141,7 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
               {EMOJI_OPTIONS.map((e) => (
                 <button
                   key={e}
+                  type="button"
                   onClick={() => setEmoji(e)}
                   className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-colors ${
                     emoji === e
@@ -208,44 +218,58 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
             <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1.5">Ingredients</label>
             <div className="space-y-2">
               {ingredients.map((ing, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={ing.name}
-                    onChange={(e) => handleIngredientChange(idx, 'name', e.target.value)}
-                    placeholder="Ingredient"
-                    className="flex-1 px-3 py-2 bg-navy-800 border border-white/10 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-400/50"
-                  />
-                  <input
-                    type="number"
-                    value={ing.quantity}
-                    onChange={(e) => handleIngredientChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                    min={0}
-                    className="w-16 px-2 py-2 bg-navy-800 border border-white/10 rounded-xl text-white text-sm text-center focus:outline-none focus:ring-2 focus:ring-accent-400/50"
-                  />
-                  <select
-                    value={ing.unit}
-                    onChange={(e) => handleIngredientChange(idx, 'unit', e.target.value)}
-                    className="w-20 px-2 py-2 bg-navy-800 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-400/50"
-                  >
-                    {UNIT_OPTIONS.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => handleRemoveIngredient(idx)}
-                    className="p-1.5 text-gray-600 hover:text-red-400 rounded-lg"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                <div key={idx} className="space-y-1">
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={ing.name}
+                      onChange={(e) => handleIngredientChange(idx, 'name', e.target.value)}
+                      placeholder="Ingredient"
+                      className="flex-1 px-3 py-2 bg-navy-800 border border-white/10 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-400/50"
+                    />
+                    <input
+                      type="number"
+                      value={ing.quantity}
+                      onChange={(e) => handleIngredientChange(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                      min={0}
+                      className="w-16 px-2 py-2 bg-navy-800 border border-white/10 rounded-xl text-white text-sm text-center focus:outline-none focus:ring-2 focus:ring-accent-400/50"
+                    />
+                    <select
+                      value={ing.unit}
+                      onChange={(e) => handleIngredientChange(idx, 'unit', e.target.value)}
+                      className="w-20 px-2 py-2 bg-navy-800 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent-400/50"
+                    >
+                      {UNIT_OPTIONS.map((u) => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveIngredient(idx)}
+                      className="p-1.5 text-gray-600 hover:text-red-400 rounded-lg"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <label className="flex items-center gap-2 pl-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ing.optional || false}
+                      onChange={(e) => handleIngredientChange(idx, 'optional', e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-gray-600 bg-navy-800 text-accent-400 focus:ring-accent-400/50 focus:ring-offset-0"
+                    />
+                    <span className="text-[11px] text-gray-500">Optional</span>
+                  </label>
                 </div>
               ))}
             </div>
+            <div ref={ingredientsEndRef} />
             <button
+              type="button"
               onClick={handleAddIngredient}
-              className="mt-2 text-xs text-accent-400 hover:text-accent-300 flex items-center gap-1"
+              className="mt-2 px-3 py-1.5 text-xs text-accent-400 hover:text-accent-300 bg-accent-400/5 hover:bg-accent-400/10 rounded-lg flex items-center gap-1 transition-colors"
             >
-              <Plus size={12} /> Add ingredient
+              <Plus size={14} /> Add ingredient
             </button>
           </div>
 
@@ -264,6 +288,7 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
                     className="flex-1 px-3 py-2 bg-navy-800 border border-white/10 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-accent-400/50 resize-none"
                   />
                   <button
+                    type="button"
                     onClick={() => handleRemoveStep(idx)}
                     className="p-1.5 text-gray-600 hover:text-red-400 rounded-lg mt-1"
                   >
@@ -272,11 +297,13 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
                 </div>
               ))}
             </div>
+            <div ref={stepsEndRef} />
             <button
+              type="button"
               onClick={handleAddStep}
-              className="mt-2 text-xs text-accent-400 hover:text-accent-300 flex items-center gap-1"
+              className="mt-2 px-3 py-1.5 text-xs text-accent-400 hover:text-accent-300 bg-accent-400/5 hover:bg-accent-400/10 rounded-lg flex items-center gap-1 transition-colors"
             >
-              <Plus size={12} /> Add step
+              <Plus size={14} /> Add step
             </button>
           </div>
 
@@ -287,6 +314,7 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
               {TAG_OPTIONS.map((tag) => (
                 <button
                   key={tag}
+                  type="button"
                   onClick={() => toggleTag(tag)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     tags.includes(tag)
@@ -316,6 +344,7 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
         {/* Save button */}
         <div className="p-5 border-t border-white/5 flex-shrink-0">
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving || !name.trim()}
             className="w-full py-3 bg-accent-400 text-navy-950 font-semibold rounded-xl hover:bg-accent-300 transition-colors disabled:opacity-50"

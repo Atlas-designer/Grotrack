@@ -11,10 +11,13 @@ export function useRecipes() {
   const { activeHouseId } = useHouse();
   const { items: inventoryItems } = useInventory();
 
-  const allRecipes = useMemo(
-    () => [...BUILT_IN_RECIPES, ...store.customRecipes],
-    [store.customRecipes]
-  );
+  const allRecipes = useMemo(() => {
+    // Filter out hidden built-ins
+    const visibleBuiltIns = BUILT_IN_RECIPES.filter(
+      (r) => !store.hiddenBuiltInIds.includes(r.id)
+    );
+    return [...visibleBuiltIns, ...store.customRecipes];
+  }, [store.customRecipes, store.hiddenBuiltInIds]);
 
   const allMatches = useMemo(
     () => sortRecipeMatches(allRecipes.map((r) => matchRecipeToInventory(r, inventoryItems))),
@@ -42,5 +45,11 @@ export function useRecipes() {
 
     deleteRecipe: (recipeId: string) =>
       activeHouseId ? store.deleteRecipe(activeHouseId, recipeId) : Promise.resolve(),
+
+    hideBuiltInRecipe: (builtInId: string) =>
+      activeHouseId ? store.hideBuiltInRecipe(activeHouseId, builtInId) : Promise.resolve(),
+
+    saveBuiltInAsCustom: (recipe: Recipe, updates: Partial<Recipe>) =>
+      activeHouseId ? store.saveBuiltInAsCustom(activeHouseId, recipe, updates) : Promise.resolve(),
   };
 }

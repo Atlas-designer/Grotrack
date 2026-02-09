@@ -1,7 +1,11 @@
 import { Package, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { useInventory } from '../../hooks/useInventory';
 
-export function QuickStats() {
+interface QuickStatsProps {
+  onTotalClick?: () => void;
+}
+
+export function QuickStats({ onTotalClick }: QuickStatsProps) {
   const { items, getExpiringItems } = useInventory();
   const expiringCount = getExpiringItems(7).length;
 
@@ -12,6 +16,7 @@ export function QuickStats() {
       value: items.length,
       color: 'text-accent-400',
       bgColor: 'bg-accent-400/15',
+      onClick: onTotalClick,
     },
     {
       icon: AlertTriangle,
@@ -35,7 +40,10 @@ export function QuickStats() {
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="flex-1 min-w-[100px] bg-navy-800 rounded-2xl p-4 border border-white/5"
+            onClick={stat.onClick}
+            className={`flex-1 min-w-[100px] bg-navy-800 rounded-2xl p-4 border border-white/5 ${
+              stat.onClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''
+            }`}
           >
             <div
               className={`w-9 h-9 ${stat.bgColor} rounded-xl flex items-center justify-center mb-3`}

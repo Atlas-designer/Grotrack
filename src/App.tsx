@@ -17,6 +17,7 @@ import { QuickStats } from './components/inventory/QuickStats';
 import { ShoppingListView } from './components/shopping/ShoppingListView';
 import { RecipesView } from './components/recipes/RecipesView';
 import { ProfileView } from './components/profile/ProfileView';
+import { AllItemsView } from './components/inventory/AllItemsView';
 import { ReceiptScanner } from './components/scanner/ReceiptScanner';
 import { CompartmentType } from './types';
 import { migrateLocalInventory } from './utils/migrateLocalData';
@@ -45,6 +46,7 @@ function AppContent() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedCompartment, setSelectedCompartment] = useState<CompartmentType | null>(null);
+  const [showAllItems, setShowAllItems] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>('home');
 
   // Subscribe to Firestore collections when house is active
@@ -70,12 +72,23 @@ function AppContent() {
     });
   }, [activeHouseId]);
 
-  // Reset compartment view when switching tabs
+  // Reset sub-views when switching tabs
   useEffect(() => {
     if (activeTab !== 'home') {
       setSelectedCompartment(null);
+      setShowAllItems(false);
     }
   }, [activeTab]);
+
+  // All items view
+  if (showAllItems && activeTab === 'home') {
+    return (
+      <>
+        <AllItemsView onBack={() => setShowAllItems(false)} />
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      </>
+    );
+  }
 
   // Compartment detail view
   if (selectedCompartment && activeTab === 'home') {
@@ -106,7 +119,7 @@ function AppContent() {
             onScanClick={() => setIsScannerOpen(true)}
           />
           <ExpiringBanner />
-          <QuickStats />
+          <QuickStats onTotalClick={() => setShowAllItems(true)} />
           <CompartmentGrid onCompartmentClick={setSelectedCompartment} />
           <SearchOverlay
             isOpen={isSearchOpen}

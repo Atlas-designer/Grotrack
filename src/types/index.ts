@@ -14,6 +14,8 @@ export type FoodCategory =
 
 export type UnitType = 'pieces' | 'kg' | 'g' | 'L' | 'ml' | 'pack';
 
+export type ItemLabel = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -26,6 +28,7 @@ export interface InventoryItem {
   opened?: boolean;
   notes?: string;
   frozenDaysRemaining?: number;
+  label?: ItemLabel;
 }
 
 export interface Compartment {

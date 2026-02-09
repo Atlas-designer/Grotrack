@@ -27,15 +27,11 @@ export function RecipesView() {
       <RecipeDetailView
         match={selectedMatch}
         onBack={() => setSelectedMatch(null)}
-        onEdit={
-          selectedMatch.recipe.source === 'custom'
-            ? () => {
-                setEditingRecipe(selectedMatch.recipe);
-                setSelectedMatch(null);
-                setIsAddModalOpen(true);
-              }
-            : undefined
-        }
+        onEdit={() => {
+          setEditingRecipe(selectedMatch.recipe);
+          setSelectedMatch(null);
+          setIsAddModalOpen(true);
+        }}
       />
     );
   }

@@ -17,7 +17,7 @@ export function RecipeDetailView({ match, onBack, onEdit }: RecipeDetailViewProp
   const { recipe, matchedIngredients, missingIngredients } = match;
   const { items: inventory, updateItem, removeItem: removeInventoryItem } = useInventory();
   const { addItem: addToShoppingList } = useShoppingList();
-  const { deleteRecipe } = useRecipes();
+  const { deleteRecipe, hideBuiltInRecipe } = useRecipes();
   const [subtracted, setSubtracted] = useState(false);
   const [subtracting, setSubtracting] = useState(false);
   const [showSubtractConfirm, setShowSubtractConfirm] = useState(false);
@@ -61,7 +61,11 @@ export function RecipeDetailView({ match, onBack, onEdit }: RecipeDetailViewProp
   };
 
   const handleDelete = async () => {
-    await deleteRecipe(recipe.id);
+    if (isCustom) {
+      await deleteRecipe(recipe.id);
+    } else {
+      await hideBuiltInRecipe(recipe.id);
+    }
     onBack();
   };
 
@@ -261,43 +265,41 @@ export function RecipeDetailView({ match, onBack, onEdit }: RecipeDetailViewProp
             </button>
           )}
 
-          {isCustom && (
-            <div className="flex gap-2 pt-1">
-              {onEdit && (
+          <div className="flex gap-2 pt-1">
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="flex-1 py-2.5 bg-navy-800 border border-white/10 text-white text-sm font-medium rounded-xl hover:bg-navy-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <Pencil size={14} />
+                Edit
+              </button>
+            )}
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex-1 py-2.5 bg-navy-800 border border-red-400/20 text-red-400 text-sm font-medium rounded-xl hover:bg-red-400/10 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={14} />
+                {isCustom ? 'Delete' : 'Hide'}
+              </button>
+            ) : (
+              <div className="flex-1 flex gap-2">
                 <button
-                  onClick={onEdit}
-                  className="flex-1 py-2.5 bg-navy-800 border border-white/10 text-white text-sm font-medium rounded-xl hover:bg-navy-700 transition-colors flex items-center justify-center gap-2"
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 py-2.5 bg-navy-800 border border-white/10 text-white text-sm rounded-xl"
                 >
-                  <Pencil size={14} />
-                  Edit
+                  Cancel
                 </button>
-              )}
-              {!confirmDelete ? (
                 <button
-                  onClick={() => setConfirmDelete(true)}
-                  className="flex-1 py-2.5 bg-navy-800 border border-red-400/20 text-red-400 text-sm font-medium rounded-xl hover:bg-red-400/10 transition-colors flex items-center justify-center gap-2"
+                  onClick={handleDelete}
+                  className="flex-1 py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl"
                 >
-                  <Trash2 size={14} />
-                  Delete
+                  Confirm
                 </button>
-              ) : (
-                <div className="flex-1 flex gap-2">
-                  <button
-                    onClick={() => setConfirmDelete(false)}
-                    className="flex-1 py-2.5 bg-navy-800 border border-white/10 text-white text-sm rounded-xl"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="flex-1 py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl"
-                  >
-                    Confirm
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
