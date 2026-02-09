@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { X, Package, Loader2 } from 'lucide-react';
 import {
   CompartmentType,
@@ -54,6 +54,11 @@ export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemMod
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [imageLoading, setImageLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  // Use refs so the debounced callback always sees the latest values
+  const imageCacheRef = useRef(imageCache);
+  imageCacheRef.current = imageCache;
+  const saveImageCacheRef = useRef(saveImageCache);
+  saveImageCacheRef.current = saveImageCache;
 
   const getDefaultExpiry = (cat: FoodCategory) => {
     const days = EXPIRATION_DEFAULTS[cat];
@@ -69,36 +74,30 @@ export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemMod
     }
   };
 
-  const fetchImage = useCallback(async (searchName: string) => {
-    const key = searchName.toLowerCase().trim();
-    if (!key || key.length < 2) {
-      setImageUrl(undefined);
-      return;
-    }
-
-    // Check cache first
-    if (imageCache[key]) {
-      setImageUrl(imageCache[key]);
-      return;
-    }
-
-    setImageLoading(true);
-    const url = await searchProductImage(searchName);
-    setImageLoading(false);
-    setImageUrl(url || undefined);
-
-    // Save to cache if found
-    if (url) {
-      saveImageCache({ [key]: url }).catch(() => {});
-    }
-  }, [imageCache, saveImageCache]);
-
   const handleNameChange = (value: string) => {
     setName(value);
-    // Debounce image lookup - wait 1s after user stops typing
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      fetchImage(value);
+    debounceRef.current = setTimeout(async () => {
+      const key = value.toLowerCase().trim();
+      if (!key || key.length < 2) {
+        setImageUrl(undefined);
+        return;
+      }
+
+      // Check cache first
+      if (imageCacheRef.current[key]) {
+        setImageUrl(imageCacheRef.current[key]);
+        return;
+      }
+
+      setImageLoading(true);
+      const url = await searchProductImage(value);
+      setImageLoading(false);
+      setImageUrl(url || undefined);
+
+      if (url) {
+        saveImageCacheRef.current({ [key]: url }).catch(() => {});
+      }
     }, 1000);
   };
 

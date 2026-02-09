@@ -2,7 +2,6 @@
 // API docs: https://openfoodfacts.github.io/openfoodfacts-server/api/
 
 const BASE_URL = 'https://world.openfoodfacts.org';
-const USER_AGENT = 'Grotrack/1.0 (https://grotrack.netlify.app)';
 const SEARCH_FIELDS = 'code,product_name,brands,image_front_small_url,image_front_url';
 
 // Rate limiting: max 10 searches/min
@@ -16,9 +15,7 @@ async function rateLimitedFetch(url: string): Promise<Response> {
     await new Promise((r) => setTimeout(r, MIN_SEARCH_INTERVAL - elapsed));
   }
   lastSearchTime = Date.now();
-  return fetch(url, {
-    headers: { 'User-Agent': USER_AGENT },
-  });
+  return fetch(url);
 }
 
 export interface OFFProduct {
@@ -46,22 +43,31 @@ export async function searchProductImage(name: string): Promise<string | null> {
       fields: SEARCH_FIELDS,
     });
 
-    const res = await rateLimitedFetch(`${BASE_URL}/cgi/search.pl?${params}`);
-    if (!res.ok) return null;
+    const url = `${BASE_URL}/cgi/search.pl?${params}`;
+    console.log('[OFF] Searching:', name.trim());
+    const res = await rateLimitedFetch(url);
+
+    if (!res.ok) {
+      console.warn('[OFF] Search failed:', res.status, res.statusText);
+      return null;
+    }
 
     const data = await res.json();
     const products: OFFProduct[] = data.products || [];
+    console.log('[OFF] Found', products.length, 'products for', name.trim());
 
     // Find the first product that has an image and a name
     for (const product of products) {
       const imageUrl = product.image_front_small_url || product.image_front_url;
       if (imageUrl && product.product_name) {
+        console.log('[OFF] Using image from:', product.product_name);
         return imageUrl;
       }
     }
 
     return null;
-  } catch {
+  } catch (err) {
+    console.error('[OFF] Search error:', err);
     return null;
   }
 }
@@ -77,8 +83,7 @@ export async function lookupBarcode(
 
   try {
     const res = await fetch(
-      `${BASE_URL}/api/v2/product/${barcode}.json?fields=${SEARCH_FIELDS}`,
-      { headers: { 'User-Agent': USER_AGENT } }
+      `${BASE_URL}/api/v2/product/${barcode}.json?fields=${SEARCH_FIELDS}`
     );
     if (!res.ok) return null;
 
@@ -93,7 +98,8 @@ export async function lookupBarcode(
       imageUrl,
       name: product.product_name || '',
     };
-  } catch {
+  } catch (err) {
+    console.error('[OFF] Barcode lookup error:', err);
     return null;
   }
 }
