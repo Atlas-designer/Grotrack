@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
-import { ArrowLeft, Check, Package, BookmarkPlus, HelpCircle } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { ArrowLeft, Check, Package, BookmarkPlus, HelpCircle, Loader2 } from 'lucide-react';
 import { ParsedReceiptItem } from '../../utils/receiptParser';
 import { expandReceiptName } from '../../utils/receiptAbbreviations';
 import { lookupFood } from '../../utils/foodDatabase';
+import { searchProductImage } from '../../utils/openFoodFacts';
 import { useInventory } from '../../hooks/useInventory';
 import { useHouse } from '../../contexts/HouseContext';
 import { FoodCategory } from '../../types';
@@ -17,6 +18,8 @@ interface ScanItem {
   expiryDays: number;
   recognized: boolean;
   saved: boolean;
+  imageUrl?: string;
+  imageLoading?: boolean;
 }
 
 const CATEGORIES: { value: FoodCategory; label: string }[] = [
@@ -40,7 +43,7 @@ interface ScanResultsViewProps {
 
 export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanResultsViewProps) {
   const { batchAddItems } = useInventory();
-  const { compartments, foodMappings, nameCorrections, saveFoodMapping, saveNameCorrection } = useHouse();
+  const { compartments, foodMappings, nameCorrections, imageCache, saveFoodMapping, saveNameCorrection, saveImageCache } = useHouse();
 
   const enhancedItems = useMemo(() => {
     return initialItems.map((item): ScanItem => {
@@ -75,8 +78,65 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
     });
   }, [initialItems, foodMappings, nameCorrections, compartments]);
 
-  const [items, setItems] = useState<ScanItem[]>(enhancedItems);
+  // Pre-fill images from cache
+  const itemsWithCachedImages = useMemo(() => {
+    return enhancedItems.map((item) => {
+      const key = item.name.toLowerCase().trim();
+      if (imageCache[key]) {
+        return { ...item, imageUrl: imageCache[key] };
+      }
+      return item;
+    });
+  }, [enhancedItems, imageCache]);
+
+  const [items, setItems] = useState<ScanItem[]>(itemsWithCachedImages);
   const [loading, setLoading] = useState(false);
+  const fetchedRef = useRef(false);
+
+  // Fetch images from Open Food Facts for items without cached images
+  useEffect(() => {
+    if (fetchedRef.current || items.length === 0) return;
+    fetchedRef.current = true;
+
+    const uncachedIndices = items
+      .map((item, i) => (!item.imageUrl ? i : -1))
+      .filter((i) => i !== -1);
+
+    if (uncachedIndices.length === 0) return;
+
+    // Mark uncached items as loading
+    setItems((prev) =>
+      prev.map((item, i) =>
+        uncachedIndices.includes(i) ? { ...item, imageLoading: true } : item
+      )
+    );
+
+    // Fetch sequentially (rate limited)
+    let cancelled = false;
+    (async () => {
+      const newCacheEntries: Record<string, string> = {};
+      for (const idx of uncachedIndices) {
+        if (cancelled) break;
+        const item = items[idx];
+        const imageUrl = await searchProductImage(item.name);
+        if (cancelled) break;
+        if (imageUrl) {
+          newCacheEntries[item.name.toLowerCase().trim()] = imageUrl;
+        }
+        setItems((prev) =>
+          prev.map((it, i) =>
+            i === idx ? { ...it, imageUrl: imageUrl || undefined, imageLoading: false } : it
+          )
+        );
+      }
+      // Save new images to house cache
+      if (Object.keys(newCacheEntries).length > 0 && !cancelled) {
+        saveImageCache(newCacheEntries).catch(() => {});
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedCount = items.filter((i) => i.selected).length;
   const allSelected = items.length > 0 && selectedCount === items.length;
@@ -164,6 +224,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
           compartment: item.compartment,
           category: item.category,
           expirationDate: getExpiryDate(item),
+          ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
         }))
       );
 
@@ -235,7 +296,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
                     : 'bg-navy-800/40 border-white/5 opacity-50'
                 }`}
               >
-                {/* Row 1: checkbox + name + quantity */}
+                {/* Row 1: checkbox + image + name + quantity */}
                 <div className="flex items-center gap-3 p-3 pb-1">
                   <button
                     onClick={() => toggleItem(index)}
@@ -247,6 +308,16 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
                   >
                     {item.selected && <Check size={14} className="text-navy-950" />}
                   </button>
+
+                  <div className="w-9 h-9 rounded-lg bg-navy-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {item.imageLoading ? (
+                      <Loader2 size={16} className="text-gray-500 animate-spin" />
+                    ) : item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Package size={16} className="text-gray-600" />
+                    )}
+                  </div>
 
                   <div className="flex-1 min-w-0">
                     <input
@@ -275,7 +346,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
                 </div>
 
                 {/* Row 2: compartment + category selects */}
-                <div className="flex items-center gap-2 px-3 pb-1 ml-9">
+                <div className="flex items-center gap-2 px-3 pb-1 ml-[4.5rem]">
                   <select
                     value={item.compartment}
                     onChange={(e) => updateCompartment(index, e.target.value)}
@@ -298,7 +369,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
                 </div>
 
                 {/* Row 3: expiry + remember */}
-                <div className="flex items-center justify-between px-3 pb-3 pt-1 ml-9">
+                <div className="flex items-center justify-between px-3 pb-3 pt-1 ml-[4.5rem]">
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] text-gray-500 uppercase tracking-wide">Exp</span>
                     <input

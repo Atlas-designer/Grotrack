@@ -76,6 +76,7 @@ export interface House {
   compartments?: Compartment[];
   foodMappings?: Record<string, FoodInfo>;
   nameCorrections?: Record<string, string>;
+  imageCache?: Record<string, string>;
 }
 
 // User profile stored in Firestore

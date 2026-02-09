@@ -27,6 +27,7 @@ interface HouseContextValue {
   compartments: Compartment[];
   foodMappings: Record<string, FoodInfo>;
   nameCorrections: Record<string, string>;
+  imageCache: Record<string, string>;
   createHouse: (name: string) => Promise<string>;
   joinHouse: (inviteCode: string) => Promise<void>;
   switchHouse: (houseId: string) => Promise<void>;
@@ -37,6 +38,7 @@ interface HouseContextValue {
   removeCompartment: (compartmentId: string) => Promise<void>;
   saveFoodMapping: (itemName: string, info: FoodInfo) => Promise<void>;
   saveNameCorrection: (original: string, corrected: string) => Promise<void>;
+  saveImageCache: (entries: Record<string, string>) => Promise<void>;
 }
 
 const HouseContext = createContext<HouseContextValue | null>(null);
@@ -68,6 +70,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   // Derive food mappings from active house
   const foodMappings = activeHouse?.foodMappings ?? {};
   const nameCorrections = activeHouse?.nameCorrections ?? {};
+  const imageCache = activeHouse?.imageCache ?? {};
 
   // Load user profile when auth changes
   useEffect(() => {
@@ -320,6 +323,14 @@ export function HouseProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const saveImageCache = async (entries: Record<string, string>) => {
+    if (!user || !activeHouseId) throw new Error('Not authenticated or no active house');
+    const current = activeHouse?.imageCache ?? {};
+    await updateDoc(doc(db, 'houses', activeHouseId), {
+      imageCache: { ...current, ...entries },
+    });
+  };
+
   return (
     <HouseContext.Provider
       value={{
@@ -331,6 +342,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         compartments,
         foodMappings,
         nameCorrections,
+        imageCache,
         createHouse,
         joinHouse,
         switchHouse,
@@ -341,6 +353,7 @@ export function HouseProvider({ children }: { children: ReactNode }) {
         removeCompartment,
         saveFoodMapping,
         saveNameCorrection,
+        saveImageCache,
       }}
     >
       {children}

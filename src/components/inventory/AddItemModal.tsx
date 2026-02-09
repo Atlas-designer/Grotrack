@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useState, useCallback, useRef } from 'react';
+import { X, Package, Loader2 } from 'lucide-react';
 import {
   CompartmentType,
   FoodCategory,
@@ -8,6 +8,7 @@ import {
 } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
 import { useHouse } from '../../contexts/HouseContext';
+import { searchProductImage } from '../../utils/openFoodFacts';
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ const labelClasses = 'block text-sm font-medium text-gray-400 mb-1.5';
 
 export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemModalProps) {
   const { addItem } = useInventory();
-  const { compartments } = useHouse();
+  const { compartments, imageCache, saveImageCache } = useHouse();
 
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -50,6 +51,9 @@ export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemMod
   const [compartment, setCompartment] = useState<CompartmentType>(defaultCompartment || 'fridge');
   const [category, setCategory] = useState<FoodCategory>('other');
   const [expirationDate, setExpirationDate] = useState('');
+  const [imageUrl, setImageUrl] = useState<string | undefined>();
+  const [imageLoading, setImageLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const getDefaultExpiry = (cat: FoodCategory) => {
     const days = EXPIRATION_DEFAULTS[cat];
@@ -65,6 +69,39 @@ export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemMod
     }
   };
 
+  const fetchImage = useCallback(async (searchName: string) => {
+    const key = searchName.toLowerCase().trim();
+    if (!key || key.length < 2) {
+      setImageUrl(undefined);
+      return;
+    }
+
+    // Check cache first
+    if (imageCache[key]) {
+      setImageUrl(imageCache[key]);
+      return;
+    }
+
+    setImageLoading(true);
+    const url = await searchProductImage(searchName);
+    setImageLoading(false);
+    setImageUrl(url || undefined);
+
+    // Save to cache if found
+    if (url) {
+      saveImageCache({ [key]: url }).catch(() => {});
+    }
+  }, [imageCache, saveImageCache]);
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    // Debounce image lookup - wait 1s after user stops typing
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchImage(value);
+    }, 1000);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -77,6 +114,7 @@ export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemMod
       compartment,
       category,
       expirationDate: expirationDate || getDefaultExpiry(category),
+      ...(imageUrl ? { imageUrl } : {}),
     });
 
     // Reset form
@@ -85,6 +123,7 @@ export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemMod
     setUnit('pieces');
     setCategory('other');
     setExpirationDate('');
+    setImageUrl(undefined);
     onClose();
   };
 
@@ -110,16 +149,28 @@ export function AddItemModal({ isOpen, onClose, defaultCompartment }: AddItemMod
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div>
-            <label className={labelClasses}>Item Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Milk, Eggs, Bread"
-              className={inputClasses}
-              required
-            />
+          {/* Image preview + Name */}
+          <div className="flex items-start gap-3">
+            <div className="w-14 h-14 rounded-xl bg-navy-700 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/5">
+              {imageLoading ? (
+                <Loader2 size={20} className="text-gray-500 animate-spin" />
+              ) : imageUrl ? (
+                <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <Package size={24} className="text-gray-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <label className={labelClasses}>Item Name *</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="e.g., Milk, Eggs, Bread"
+                className={inputClasses}
+                required
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
