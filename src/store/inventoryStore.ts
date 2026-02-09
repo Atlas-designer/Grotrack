@@ -4,6 +4,7 @@ import {
   doc,
   addDoc,
   deleteDoc,
+  deleteField,
   updateDoc,
   onSnapshot,
   writeBatch,
@@ -73,7 +74,11 @@ export const useInventoryStore = create<InventoryState>()((set, get) => ({
   },
 
   updateItem: async (houseId, itemId, updates) => {
-    await updateDoc(doc(db, 'houses', houseId, 'inventory', itemId), updates);
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      cleaned[key] = value === undefined ? deleteField() : value;
+    }
+    await updateDoc(doc(db, 'houses', houseId, 'inventory', itemId), cleaned);
   },
 
   moveItem: async (houseId, itemId, newCompartment) => {
