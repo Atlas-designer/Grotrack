@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useHouse } from './contexts/HouseContext';
 import { useInventoryStore } from './store/inventoryStore';
 import { useShoppingListStore } from './store/shoppingListStore';
+import { useRecipeStore } from './store/recipeStore';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { HouseSetup } from './components/house/HouseSetup';
 import { Header } from './components/layout/Header';
@@ -14,6 +15,7 @@ import { AddItemModal } from './components/inventory/AddItemModal';
 import { ExpiringBanner } from './components/inventory/ExpiringBanner';
 import { QuickStats } from './components/inventory/QuickStats';
 import { ShoppingListView } from './components/shopping/ShoppingListView';
+import { RecipesView } from './components/recipes/RecipesView';
 import { ProfileView } from './components/profile/ProfileView';
 import { ReceiptScanner } from './components/scanner/ReceiptScanner';
 import { CompartmentType } from './types';
@@ -37,6 +39,7 @@ function AppContent() {
   const { activeHouseId } = useHouse();
   const inventorySubscribe = useInventoryStore((s) => s.subscribe);
   const shoppingSubscribe = useShoppingListStore((s) => s.subscribe);
+  const recipeSubscribe = useRecipeStore((s) => s.subscribe);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -49,9 +52,11 @@ function AppContent() {
     if (!activeHouseId) return;
     const unsubInventory = inventorySubscribe(activeHouseId);
     const unsubShopping = shoppingSubscribe(activeHouseId);
+    const unsubRecipes = recipeSubscribe(activeHouseId);
     return () => {
       unsubInventory();
       unsubShopping();
+      unsubRecipes();
     };
   }, [activeHouseId]);
 
@@ -115,6 +120,7 @@ function AppContent() {
       )}
 
       {activeTab === 'lists' && <ShoppingListView />}
+      {activeTab === 'recipes' && <RecipesView />}
       {activeTab === 'profile' && <ProfileView />}
 
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />

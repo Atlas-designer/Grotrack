@@ -86,6 +86,59 @@ export interface UserProfile {
   houses: string[];
 }
 
+// Recipes
+export interface RecipeIngredient {
+  name: string;
+  quantity: number;
+  unit: UnitType;
+  optional?: boolean;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  servings: number;
+  prepTime: number;
+  cookTime: number;
+  ingredients: RecipeIngredient[];
+  instructions: string[];
+  tags: RecipeTag[];
+  notes?: string;
+  source?: 'built-in' | 'custom';
+  createdBy?: string;
+  createdAt?: string;
+}
+
+export type RecipeTag =
+  | 'quick'
+  | 'vegetarian'
+  | 'vegan'
+  | 'comfort'
+  | 'healthy'
+  | 'budget'
+  | 'meal-prep'
+  | 'breakfast'
+  | 'lunch'
+  | 'dinner'
+  | 'snack'
+  | 'baking';
+
+export interface RecipeMatch {
+  recipe: Recipe;
+  matchedIngredients: MatchedIngredient[];
+  missingIngredients: RecipeIngredient[];
+  matchPercentage: number;
+  allAvailable: boolean;
+}
+
+export interface MatchedIngredient {
+  recipeIngredient: RecipeIngredient;
+  inventoryItem: InventoryItem;
+  sufficient: boolean;
+}
+
 // Shopping list
 export interface ShoppingListItem {
   id: string;

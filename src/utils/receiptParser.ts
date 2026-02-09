@@ -19,7 +19,7 @@ const NOISE_PATTERNS = [
   /\b(saving|you\s*saved|multi\s*buy|meal\s*deal)\b/i,
   /\b(payment|paid|tender|amount\s*due|amount\s*owing)\b/i,
   /\b(refund|void|cancel|error)\b/i,
-  /\b(deposit|bag\s*charge|carrier\s*bag)\b/i,
+  /\b(deposit|bag\s*charge|carrier\s*bag|bag\s*for\s*life|bag)\b/i,
 
   // Store / receipt metadata
   /\b(sainsbury|tesco|asda|morrisons|waitrose|aldi|lidl|co-?op|m&s)\b/i,

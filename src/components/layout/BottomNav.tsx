@@ -1,6 +1,6 @@
-import { Home, ClipboardList, User } from 'lucide-react';
+import { Home, ClipboardList, ChefHat, User } from 'lucide-react';
 
-export type NavTab = 'home' | 'lists' | 'profile';
+export type NavTab = 'home' | 'lists' | 'recipes' | 'profile';
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -10,6 +10,7 @@ interface BottomNavProps {
 const tabs: { id: NavTab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'lists', label: 'Lists', icon: ClipboardList },
+  { id: 'recipes', label: 'Recipes', icon: ChefHat },
   { id: 'profile', label: 'Profile', icon: User },
 ];
 
