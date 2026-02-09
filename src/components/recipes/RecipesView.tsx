@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Plus, ChefHat } from 'lucide-react';
+import { Plus, ChefHat, Download } from 'lucide-react';
 import { RecipeTag, RecipeMatch, Recipe } from '../../types';
 import { useRecipes } from '../../hooks/useRecipes';
 import { RecipeFilterBar } from './RecipeFilterBar';
 import { RecipeCard } from './RecipeCard';
 import { RecipeDetailView } from './RecipeDetailView';
 import { AddRecipeModal } from './AddRecipeModal';
+import { ImportRecipeModal } from './ImportRecipeModal';
 
 export function RecipesView() {
   const { allMatches, filterByTag, loading } = useRecipes();
   const [activeTag, setActiveTag] = useState<RecipeTag | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<RecipeMatch | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | undefined>(undefined);
 
   const filteredMatches = filterByTag(activeTag);
@@ -44,15 +46,23 @@ export function RecipesView() {
       <div className="sticky top-0 z-40 bg-navy-900/80 backdrop-blur-lg border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-bold text-white">Recipes</h1>
-          <button
-            onClick={() => {
-              setEditingRecipe(undefined);
-              setIsAddModalOpen(true);
-            }}
-            className="p-2 bg-accent-400 text-navy-950 rounded-xl hover:bg-accent-300 transition-colors"
-          >
-            <Plus size={18} strokeWidth={2.5} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="p-2 bg-navy-800 border border-white/10 text-gray-400 rounded-xl hover:text-white hover:border-white/20 transition-colors"
+            >
+              <Download size={18} />
+            </button>
+            <button
+              onClick={() => {
+                setEditingRecipe(undefined);
+                setIsAddModalOpen(true);
+              }}
+              className="p-2 bg-accent-400 text-navy-950 rounded-xl hover:bg-accent-300 transition-colors"
+            >
+              <Plus size={18} strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
         <div className="px-4 pb-3">
           <RecipeFilterBar activeTag={activeTag} onTagChange={setActiveTag} />
@@ -146,12 +156,18 @@ export function RecipesView() {
       </div>
 
       <AddRecipeModal
+        key={editingRecipe?.id || 'new'}
         isOpen={isAddModalOpen}
         onClose={() => {
           setIsAddModalOpen(false);
           setEditingRecipe(undefined);
         }}
         editingRecipe={editingRecipe}
+      />
+
+      <ImportRecipeModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
       />
     </div>
   );

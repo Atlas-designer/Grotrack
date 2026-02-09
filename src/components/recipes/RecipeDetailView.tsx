@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ArrowLeft, Clock, Users, ShoppingCart, Trash2, ChefHat, Pencil, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Clock, Users, ShoppingCart, Trash2, ChefHat, Pencil, AlertTriangle, Share2, Check } from 'lucide-react';
 import { RecipeMatch, UnitType } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
 import { useShoppingList } from '../../hooks/useShoppingList';
 import { useRecipes } from '../../hooks/useRecipes';
 import { calculateSubtractions } from '../../utils/ingredientMatcher';
+import { shareRecipe } from '../../utils/recipeShare';
 
 interface RecipeDetailViewProps {
   match: RecipeMatch;
@@ -22,8 +23,17 @@ export function RecipeDetailView({ match, onBack, onEdit }: RecipeDetailViewProp
   const [showSubtractConfirm, setShowSubtractConfirm] = useState(false);
   const [addedToList, setAddedToList] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [shared, setShared] = useState(false);
 
   const isCustom = recipe.source === 'custom';
+
+  const handleShare = async () => {
+    const result = await shareRecipe(recipe);
+    if (result === 'copied' || result === 'shared') {
+      setShared(true);
+      setTimeout(() => setShared(false), 2000);
+    }
+  };
 
   const handleSubtractIngredients = async () => {
     setSubtracting(true);
@@ -80,7 +90,13 @@ export function RecipeDetailView({ match, onBack, onEdit }: RecipeDetailViewProp
             <ArrowLeft size={20} className="text-gray-400" />
           </button>
           <span className="text-2xl">{recipe.emoji}</span>
-          <h1 className="text-lg font-bold text-white truncate">{recipe.name}</h1>
+          <h1 className="text-lg font-bold text-white truncate flex-1">{recipe.name}</h1>
+          <button
+            onClick={handleShare}
+            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
+          >
+            {shared ? <Check size={20} className="text-emerald-400" /> : <Share2 size={20} className="text-gray-400" />}
+          </button>
         </div>
       </div>
 

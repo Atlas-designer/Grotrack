@@ -1,5 +1,7 @@
-import { Clock, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, Users, ShoppingCart, Check } from 'lucide-react';
 import { RecipeMatch } from '../../types';
+import { useShoppingList } from '../../hooks/useShoppingList';
 
 interface RecipeCardProps {
   match: RecipeMatch;
@@ -8,12 +10,22 @@ interface RecipeCardProps {
 
 export function RecipeCard({ match, onClick }: RecipeCardProps) {
   const { recipe, matchPercentage, missingIngredients, allAvailable } = match;
+  const { addItem: addToShoppingList } = useShoppingList();
+  const [addedToList, setAddedToList] = useState(false);
   const totalTime = recipe.prepTime + recipe.cookTime;
 
   const getBadgeClass = () => {
     if (allAvailable) return 'bg-emerald-400/15 text-emerald-400';
     if (matchPercentage >= 70) return 'bg-amber-400/15 text-amber-400';
     return 'bg-red-400/15 text-red-400';
+  };
+
+  const handleAddMissing = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    for (const missing of missingIngredients) {
+      await addToShoppingList(missing.name, missing.quantity, missing.unit);
+    }
+    setAddedToList(true);
   };
 
   return (
@@ -44,9 +56,18 @@ export function RecipeCard({ match, onClick }: RecipeCardProps) {
             {matchPercentage}%
           </span>
           {missingIngredients.length > 0 && (
-            <span className="text-[10px] text-red-400">
-              {missingIngredients.length} missing
-            </span>
+            <button
+              onClick={handleAddMissing}
+              disabled={addedToList}
+              className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
+                addedToList
+                  ? 'text-emerald-400 bg-emerald-400/10'
+                  : 'text-red-400 hover:bg-red-400/10'
+              }`}
+            >
+              {addedToList ? <Check size={10} /> : <ShoppingCart size={10} />}
+              {addedToList ? 'Added' : `${missingIngredients.length} missing`}
+            </button>
           )}
         </div>
       </div>
