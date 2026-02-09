@@ -5,6 +5,7 @@ import { useInventory } from '../../hooks/useInventory';
 import { useHouse } from '../../contexts/HouseContext';
 import { ItemCard } from './ItemCard';
 import { ItemActionSheet } from './ItemActionSheet';
+import { ItemDetailModal } from './ItemDetailModal';
 
 const DEFAULT_IDS = new Set(DEFAULT_COMPARTMENTS.map((c) => c.id));
 
@@ -20,6 +21,7 @@ export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentV
   const compartmentInfo = compartments.find((c) => c.id === compartment);
   const compartmentItems = items.filter((item) => item.compartment === compartment);
   const [moveItem, setMoveItem] = useState<InventoryItem | null>(null);
+  const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -89,7 +91,7 @@ export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentV
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {compartmentItems.map((item) => (
-              <ItemCard key={item.id} item={item} onMove={setMoveItem} />
+              <ItemCard key={item.id} item={item} onMove={setMoveItem} onClick={setDetailItem} />
             ))}
           </div>
         )}
@@ -97,6 +99,10 @@ export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentV
 
       {moveItem && (
         <ItemActionSheet item={moveItem} onClose={() => setMoveItem(null)} />
+      )}
+
+      {detailItem && (
+        <ItemDetailModal item={detailItem} onClose={() => setDetailItem(null)} />
       )}
 
       {/* Delete compartment confirmation */}

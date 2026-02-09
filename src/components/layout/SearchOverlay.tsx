@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X, ArrowLeft } from 'lucide-react';
 import { useInventory } from '../../hooks/useInventory';
+import { InventoryItem } from '../../types';
 import { ItemCard } from '../inventory/ItemCard';
+import { ItemDetailModal } from '../inventory/ItemDetailModal';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -10,6 +12,7 @@ interface SearchOverlayProps {
 
 export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
   const [query, setQuery] = useState('');
+  const [detailItem, setDetailItem] = useState<InventoryItem | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { items } = useInventory();
 
@@ -74,11 +77,15 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredItems.map((item) => (
-              <ItemCard key={item.id} item={item} compact />
+              <ItemCard key={item.id} item={item} compact onClick={setDetailItem} />
             ))}
           </div>
         )}
       </div>
+
+      {detailItem && (
+        <ItemDetailModal item={detailItem} onClose={() => setDetailItem(null)} />
+      )}
     </div>
   );
 }

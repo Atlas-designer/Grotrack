@@ -15,7 +15,6 @@ interface ScanItem {
   category: FoodCategory;
   compartment: string;
   expiryDays: number;
-  opened: boolean;
   recognized: boolean;
   saved: boolean;
 }
@@ -59,7 +58,6 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
           category: match.category,
           compartment: validCompartment,
           expiryDays: match.expiryDays,
-          opened: false,
           recognized: true,
           saved: false,
         };
@@ -71,7 +69,6 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
         category: 'other',
         compartment: compartments[0]?.id || 'fridge',
         expiryDays: 30,
-        opened: false,
         recognized: false,
         saved: false,
       };
@@ -125,23 +122,15 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
     );
   };
 
-  const toggleOpened = (index: number) => {
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, opened: !item.opened } : item))
-    );
-  };
-
   const getExpiryDate = (item: ScanItem): string => {
-    const days = item.opened ? Math.min(3, item.expiryDays) : item.expiryDays;
     const date = new Date();
-    date.setDate(date.getDate() + days);
+    date.setDate(date.getDate() + item.expiryDays);
     return date.toISOString().split('T')[0];
   };
 
   const formatExpiryDate = (item: ScanItem): string => {
-    const days = item.opened ? Math.min(3, item.expiryDays) : item.expiryDays;
     const date = new Date();
-    date.setDate(date.getDate() + days);
+    date.setDate(date.getDate() + item.expiryDays);
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   };
 
@@ -308,36 +297,18 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
                   </select>
                 </div>
 
-                {/* Row 3: expiry + opened toggle + remember */}
+                {/* Row 3: expiry + remember */}
                 <div className="flex items-center justify-between px-3 pb-3 pt-1 ml-9">
-                  <div className="flex items-center gap-3">
-                    {/* Expiry days input */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-gray-500 uppercase tracking-wide">Exp</span>
-                      <input
-                        type="number"
-                        value={item.expiryDays}
-                        onChange={(e) => updateExpiryDays(index, parseInt(e.target.value) || 1)}
-                        className="w-10 px-1 py-0.5 bg-navy-700 border border-white/10 rounded text-white text-xs text-center focus:outline-none focus:ring-1 focus:ring-accent-400/50"
-                      />
-                      <span className="text-[10px] text-gray-500">d</span>
-                      <span className="text-[10px] text-gray-400 ml-0.5">({formatExpiryDate(item)})</span>
-                    </div>
-
-                    {/* Opened toggle */}
-                    <button
-                      onClick={() => toggleOpened(index)}
-                      className="flex items-center gap-1.5"
-                    >
-                      <div className={`w-7 h-4 rounded-full transition-colors flex items-center ${
-                        item.opened ? 'bg-accent-400' : 'bg-navy-600'
-                      }`}>
-                        <div className={`w-3 h-3 rounded-full bg-white transition-transform mx-0.5 ${
-                          item.opened ? 'translate-x-3' : 'translate-x-0'
-                        }`} />
-                      </div>
-                      <span className="text-[10px] text-gray-400">Opened</span>
-                    </button>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wide">Exp</span>
+                    <input
+                      type="number"
+                      value={item.expiryDays}
+                      onChange={(e) => updateExpiryDays(index, parseInt(e.target.value) || 1)}
+                      className="w-10 px-1 py-0.5 bg-navy-700 border border-white/10 rounded text-white text-xs text-center focus:outline-none focus:ring-1 focus:ring-accent-400/50"
+                    />
+                    <span className="text-[10px] text-gray-500">d</span>
+                    <span className="text-[10px] text-gray-400 ml-0.5">({formatExpiryDate(item)})</span>
                   </div>
 
                   {/* Unrecognized indicator + remember */}

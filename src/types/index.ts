@@ -24,6 +24,7 @@ export interface InventoryItem {
   imageUrl?: string;
   purchaseDate: string;
   expirationDate: string;
+  opened?: boolean;
   notes?: string;
 }
 

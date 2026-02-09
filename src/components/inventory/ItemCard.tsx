@@ -7,9 +7,10 @@ interface ItemCardProps {
   compact?: boolean;
   onEdit?: (item: InventoryItem) => void;
   onMove?: (item: InventoryItem) => void;
+  onClick?: (item: InventoryItem) => void;
 }
 
-export function ItemCard({ item, compact = false, onEdit, onMove }: ItemCardProps) {
+export function ItemCard({ item, compact = false, onEdit, onMove, onClick }: ItemCardProps) {
   const { removeItem } = useInventory();
 
   const getExpiryStatus = () => {
@@ -27,7 +28,10 @@ export function ItemCard({ item, compact = false, onEdit, onMove }: ItemCardProp
 
   if (compact) {
     return (
-      <div className="bg-navy-800 rounded-xl p-3 border border-white/5">
+      <div
+        className="bg-navy-800 rounded-xl p-3 border border-white/5 cursor-pointer active:scale-[0.98] transition-transform"
+        onClick={() => onClick?.(item)}
+      >
         <div className="flex items-center gap-2 mb-2">
           {item.imageUrl ? (
             <img src={item.imageUrl} alt={item.name} className="w-10 h-10 object-cover rounded-lg" />
@@ -50,7 +54,10 @@ export function ItemCard({ item, compact = false, onEdit, onMove }: ItemCardProp
 
   return (
     <div className="bg-navy-800 rounded-2xl border border-white/5 overflow-hidden card-hover">
-      <div className="aspect-square bg-navy-700 flex items-center justify-center">
+      <div
+        className="aspect-square bg-navy-700 flex items-center justify-center cursor-pointer"
+        onClick={() => onClick?.(item)}
+      >
         {item.imageUrl ? (
           <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
         ) : (
@@ -59,10 +66,12 @@ export function ItemCard({ item, compact = false, onEdit, onMove }: ItemCardProp
       </div>
 
       <div className="p-3">
-        <h3 className="font-medium text-white truncate">{item.name}</h3>
-        <p className="text-sm text-gray-500 mb-2">
-          Qty: {item.quantity} {item.unit}
-        </p>
+        <div className="cursor-pointer" onClick={() => onClick?.(item)}>
+          <h3 className="font-medium text-white truncate">{item.name}</h3>
+          <p className="text-sm text-gray-500 mb-2">
+            Qty: {item.quantity} {item.unit}
+          </p>
+        </div>
 
         <div className="flex items-center justify-between">
           <span className={`text-xs px-2 py-1 rounded-full ${expiry.class}`}>
@@ -72,7 +81,7 @@ export function ItemCard({ item, compact = false, onEdit, onMove }: ItemCardProp
           <div className="flex gap-1">
             {onMove && (
               <button
-                onClick={() => onMove(item)}
+                onClick={(e) => { e.stopPropagation(); onMove(item); }}
                 className="p-1.5 text-gray-500 hover:text-accent-400 hover:bg-white/5 rounded-lg"
                 aria-label="Move item"
               >
@@ -81,7 +90,7 @@ export function ItemCard({ item, compact = false, onEdit, onMove }: ItemCardProp
             )}
             {onEdit && (
               <button
-                onClick={() => onEdit(item)}
+                onClick={(e) => { e.stopPropagation(); onEdit(item); }}
                 className="p-1.5 text-gray-500 hover:text-accent-400 hover:bg-white/5 rounded-lg"
                 aria-label="Edit item"
               >
@@ -89,7 +98,7 @@ export function ItemCard({ item, compact = false, onEdit, onMove }: ItemCardProp
               </button>
             )}
             <button
-              onClick={() => removeItem(item.id)}
+              onClick={(e) => { e.stopPropagation(); removeItem(item.id); }}
               className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-white/5 rounded-lg"
               aria-label="Remove item"
             >
