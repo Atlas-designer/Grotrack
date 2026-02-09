@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { X, Minus, Plus, Package } from 'lucide-react';
+import { X, Minus, Plus, Package, ShoppingCart } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
+import { useShoppingList } from '../../hooks/useShoppingList';
 
 interface ItemDetailModalProps {
   item: InventoryItem;
@@ -10,6 +11,7 @@ interface ItemDetailModalProps {
 
 export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
   const { updateItem, removeItem } = useInventory();
+  const { addItem: addToShoppingList } = useShoppingList();
   const [name, setName] = useState(item.name);
   const [quantity, setQuantity] = useState(item.quantity);
   const [expirationDate, setExpirationDate] = useState(item.expirationDate);
@@ -72,6 +74,17 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
   const handleDelete = async () => {
     setSaving(true);
     try {
+      await removeItem(item.id);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteAndAddToList = async () => {
+    setSaving(true);
+    try {
+      await addToShoppingList(name.trim(), quantity, item.unit);
       await removeItem(item.id);
       onClose();
     } finally {
@@ -191,21 +204,31 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
                 </button>
               </>
             ) : (
-              <>
+              <div className="flex flex-col gap-2 w-full">
                 <button
-                  onClick={() => setConfirmDelete(false)}
-                  className="flex-1 py-2.5 bg-navy-800 border border-white/10 text-white text-sm font-medium rounded-xl hover:bg-navy-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
+                  onClick={handleDeleteAndAddToList}
                   disabled={saving}
-                  className="flex-[2] py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl hover:bg-red-400 transition-colors disabled:opacity-50"
+                  className="w-full py-2.5 bg-accent-400 text-navy-950 text-sm font-semibold rounded-xl hover:bg-accent-300 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {saving ? 'Deleting...' : 'Confirm Delete'}
+                  <ShoppingCart size={16} />
+                  {saving ? 'Adding...' : 'Add to Shopping List & Delete'}
                 </button>
-              </>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 py-2.5 bg-navy-800 border border-white/10 text-white text-sm font-medium rounded-xl hover:bg-navy-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={saving}
+                    className="flex-1 py-2.5 bg-red-500 text-white text-sm font-semibold rounded-xl hover:bg-red-400 transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Deleting...' : 'Just Delete'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
