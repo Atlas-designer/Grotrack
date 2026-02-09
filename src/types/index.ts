@@ -21,7 +21,6 @@ export interface InventoryItem {
   unit: UnitType;
   compartment: CompartmentType;
   category: FoodCategory;
-  imageUrl?: string;
   purchaseDate: string;
   expirationDate: string;
   opened?: boolean;
@@ -76,7 +75,6 @@ export interface House {
   compartments?: Compartment[];
   foodMappings?: Record<string, FoodInfo>;
   nameCorrections?: Record<string, string>;
-  imageCache?: Record<string, string>;
 }
 
 // User profile stored in Firestore

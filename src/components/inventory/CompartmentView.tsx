@@ -89,7 +89,7 @@ export function CompartmentView({ compartment, onBack, onAddItem }: CompartmentV
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
             {compartmentItems.map((item) => (
               <ItemCard key={item.id} item={item} onMove={setMoveItem} onClick={setDetailItem} />
             ))}

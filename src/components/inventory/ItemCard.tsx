@@ -1,6 +1,7 @@
-import { Trash2, Edit2, Package, ArrowRightLeft } from 'lucide-react';
+import { Trash2, ArrowRightLeft } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
+import { getFoodIcon } from '../../utils/foodIcons';
 
 interface ItemCardProps {
   item: InventoryItem;
@@ -10,7 +11,7 @@ interface ItemCardProps {
   onClick?: (item: InventoryItem) => void;
 }
 
-export function ItemCard({ item, compact = false, onEdit, onMove, onClick }: ItemCardProps) {
+export function ItemCard({ item, compact = false, onMove, onClick }: ItemCardProps) {
   const { removeItem } = useInventory();
 
   const getExpiryStatus = () => {
@@ -25,6 +26,7 @@ export function ItemCard({ item, compact = false, onEdit, onMove, onClick }: Ite
   };
 
   const expiry = getExpiryStatus();
+  const icon = getFoodIcon(item.name, item.category);
 
   if (compact) {
     return (
@@ -32,20 +34,14 @@ export function ItemCard({ item, compact = false, onEdit, onMove, onClick }: Ite
         className="bg-navy-800 rounded-xl p-3 border border-white/5 cursor-pointer active:scale-[0.98] transition-transform"
         onClick={() => onClick?.(item)}
       >
-        <div className="flex items-center gap-2 mb-2">
-          {item.imageUrl ? (
-            <img src={item.imageUrl} alt={item.name} className="w-10 h-10 object-cover rounded-lg" />
-          ) : (
-            <div className="w-10 h-10 bg-navy-700 rounded-lg flex items-center justify-center">
-              <Package size={20} className="text-gray-500" />
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="text-xl flex-shrink-0">{icon}</span>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm text-white truncate">{item.name}</p>
             <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
           </div>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${expiry.class}`}>
+        <span className={`text-xs px-2 py-0.5 rounded-full mt-2 inline-block ${expiry.class}`}>
           {expiry.text}
         </span>
       </div>
@@ -53,48 +49,35 @@ export function ItemCard({ item, compact = false, onEdit, onMove, onClick }: Ite
   }
 
   return (
-    <div className="bg-navy-800 rounded-2xl border border-white/5 overflow-hidden card-hover">
-      <div
-        className="aspect-square bg-navy-700 flex items-center justify-center cursor-pointer"
-        onClick={() => onClick?.(item)}
-      >
-        {item.imageUrl ? (
-          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-        ) : (
-          <Package size={40} className="text-gray-600" />
-        )}
-      </div>
+    <div
+      className="bg-navy-800 rounded-xl border border-white/5 p-3 cursor-pointer active:scale-[0.98] transition-transform"
+      onClick={() => onClick?.(item)}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-navy-700 rounded-lg flex items-center justify-center flex-shrink-0">
+          <span className="text-2xl">{icon}</span>
+        </div>
 
-      <div className="p-3">
-        <div className="cursor-pointer" onClick={() => onClick?.(item)}>
-          <h3 className="font-medium text-white truncate">{item.name}</h3>
-          <p className="text-sm text-gray-500 mb-2">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-white text-sm truncate">{item.name}</h3>
+          <p className="text-xs text-gray-500">
             Qty: {item.quantity} {item.unit}
           </p>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className={`text-xs px-2 py-1 rounded-full ${expiry.class}`}>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`text-xs px-2 py-0.5 rounded-full ${expiry.class}`}>
             {expiry.text}
           </span>
 
-          <div className="flex gap-1">
+          <div className="flex gap-0.5">
             {onMove && (
               <button
                 onClick={(e) => { e.stopPropagation(); onMove(item); }}
                 className="p-1.5 text-gray-500 hover:text-accent-400 hover:bg-white/5 rounded-lg"
                 aria-label="Move item"
               >
-                <ArrowRightLeft size={16} />
-              </button>
-            )}
-            {onEdit && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onEdit(item); }}
-                className="p-1.5 text-gray-500 hover:text-accent-400 hover:bg-white/5 rounded-lg"
-                aria-label="Edit item"
-              >
-                <Edit2 size={16} />
+                <ArrowRightLeft size={14} />
               </button>
             )}
             <button
@@ -102,7 +85,7 @@ export function ItemCard({ item, compact = false, onEdit, onMove, onClick }: Ite
               className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-white/5 rounded-lg"
               aria-label="Remove item"
             >
-              <Trash2 size={16} />
+              <Trash2 size={14} />
             </button>
           </div>
         </div>

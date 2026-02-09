@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { X, Minus, Plus, Package, ShoppingCart } from 'lucide-react';
+import { X, Minus, Plus, ShoppingCart } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { useInventory } from '../../hooks/useInventory';
 import { useShoppingList } from '../../hooks/useShoppingList';
+import { getFoodIcon } from '../../utils/foodIcons';
 
 interface ItemDetailModalProps {
   item: InventoryItem;
@@ -112,11 +113,7 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
           {/* Item icon */}
           <div className="flex justify-center">
             <div className="w-20 h-20 bg-navy-800 rounded-2xl flex items-center justify-center border border-white/5">
-              {item.imageUrl ? (
-                <img src={item.imageUrl} alt={name} className="w-full h-full object-cover rounded-2xl" />
-              ) : (
-                <Package size={36} className="text-gray-500" />
-              )}
+              <span className="text-4xl">{getFoodIcon(name, item.category)}</span>
             </div>
           </div>
 
