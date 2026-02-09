@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { RecipeIngredient, RecipeTag, UnitType, Recipe } from '../../types';
 import { useRecipes } from '../../hooks/useRecipes';
+import { guessUnit } from '../../utils/guessUnit';
 
 const EMOJI_OPTIONS = [
   '🍳', '🥘', '🍝', '🍲', '🥗', '🌮', '🍛', '🍜',
@@ -56,9 +57,15 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
   };
 
   const handleIngredientChange = (idx: number, field: keyof RecipeIngredient, value: string | number | boolean) => {
-    setIngredients(ingredients.map((ing, i) =>
-      i === idx ? { ...ing, [field]: value } : ing
-    ));
+    setIngredients(ingredients.map((ing, i) => {
+      if (i !== idx) return ing;
+      const updated = { ...ing, [field]: value };
+      // Auto-set unit when name changes (only if user hasn't manually picked a different unit)
+      if (field === 'name' && typeof value === 'string' && value.trim()) {
+        updated.unit = guessUnit(value);
+      }
+      return updated;
+    }));
   };
 
   const handleAddStep = () => {
@@ -96,7 +103,7 @@ export function AddRecipeModal({ isOpen, onClose, editingRecipe }: AddRecipeModa
         ingredients: validIngredients,
         instructions: validSteps,
         tags,
-        notes: notes.trim() || undefined,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
       };
 
       if (editingRecipe) {

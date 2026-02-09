@@ -4,14 +4,16 @@ import { ParsedReceiptItem } from '../../utils/receiptParser';
 import { expandReceiptName } from '../../utils/receiptAbbreviations';
 import { lookupFood } from '../../utils/foodDatabase';
 import { getFoodIcon } from '../../utils/foodIcons';
+import { guessUnit } from '../../utils/guessUnit';
 import { useInventory } from '../../hooks/useInventory';
 import { useHouse } from '../../contexts/HouseContext';
-import { FoodCategory } from '../../types';
+import { FoodCategory, UnitType } from '../../types';
 
 interface ScanItem {
   name: string;
   originalParsedName: string;
   quantity: number;
+  unit: UnitType;
   selected: boolean;
   category: FoodCategory;
   compartment: string;
@@ -55,6 +57,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
           ...item,
           name: expandedName,
           originalParsedName: item.name,
+          unit: guessUnit(expandedName),
           category: match.category,
           compartment: validCompartment,
           expiryDays: match.expiryDays,
@@ -66,6 +69,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
         ...item,
         name: expandedName,
         originalParsedName: item.name,
+        unit: guessUnit(expandedName),
         category: 'other',
         compartment: compartments[0]?.id || 'fridge',
         expiryDays: 30,
@@ -94,7 +98,13 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
 
   const updateName = (index: number, name: string) => {
     setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, name } : item))
+      prev.map((item, i) => (i === index ? { ...item, name, unit: guessUnit(name) } : item))
+    );
+  };
+
+  const updateUnit = (index: number, unit: UnitType) => {
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, unit } : item))
     );
   };
 
@@ -160,7 +170,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
         selectedItems.map((item) => ({
           name: item.name,
           quantity: item.quantity,
-          unit: 'pieces' as const,
+          unit: item.unit,
           compartment: item.compartment,
           category: item.category,
           expirationDate: getExpiryDate(item),
@@ -276,7 +286,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
                   </div>
                 </div>
 
-                {/* Row 2: compartment + category selects */}
+                {/* Row 2: compartment + category + unit selects */}
                 <div className="flex items-center gap-2 px-3 pb-1 ml-[4.5rem]">
                   <select
                     value={item.compartment}
@@ -296,6 +306,19 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
                     {CATEGORIES.map((c) => (
                       <option key={c.value} value={c.value}>{c.label}</option>
                     ))}
+                  </select>
+
+                  <select
+                    value={item.unit}
+                    onChange={(e) => updateUnit(index, e.target.value as UnitType)}
+                    className="w-[4.5rem] px-2 py-1 bg-navy-700 border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-accent-400/50"
+                  >
+                    <option value="pieces">pieces</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="ml">ml</option>
+                    <option value="L">L</option>
+                    <option value="pack">pack</option>
                   </select>
                 </div>
 
