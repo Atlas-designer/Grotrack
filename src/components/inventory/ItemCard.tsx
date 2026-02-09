@@ -15,6 +15,9 @@ export function ItemCard({ item, compact = false, onMove, onClick }: ItemCardPro
   const { removeItem } = useInventory();
 
   const getExpiryStatus = () => {
+    if (item.frozenDaysRemaining) {
+      return { class: 'expiry-frozen', text: `Frozen (${item.frozenDaysRemaining}d)` };
+    }
     const today = new Date();
     const expiry = new Date(item.expirationDate);
     const daysLeft = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));

@@ -43,6 +43,10 @@ body {
   @apply text-gray-500 bg-gray-500/15 line-through;
 }
 
+.expiry-frozen {
+  @apply text-sky-400 bg-sky-400/15;
+}
+
 /* Custom scrollbar for dark theme */
 ::-webkit-scrollbar {
   width: 6px;

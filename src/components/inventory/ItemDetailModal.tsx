@@ -20,7 +20,12 @@ export function ItemDetailModal({ item, onClose }: ItemDetailModalProps) {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const isFrozen = !!item.frozenDaysRemaining;
+
   const getExpiryStatus = () => {
+    if (isFrozen) {
+      return { class: 'text-sky-400', text: `Frozen (${item.frozenDaysRemaining}d saved)` };
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const expiry = new Date(expirationDate);

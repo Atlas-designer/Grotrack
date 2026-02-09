@@ -25,6 +25,7 @@ export interface InventoryItem {
   expirationDate: string;
   opened?: boolean;
   notes?: string;
+  frozenDaysRemaining?: number;
 }
 
 export interface Compartment {

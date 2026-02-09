@@ -4,50 +4,37 @@ export interface ParsedReceiptItem {
   selected: boolean;
 }
 
-// Known store/brand names to filter out
-const STORE_NAMES = /\b(sainsbury|tesco|asda|morrisons|waitrose|aldi|lidl|co-?op|marks\s*&?\s*spencer|m&s|walmart|target|kroger|costco|whole\s*foods)\b/i;
+// A line must contain a price to be considered a purchased item
+// Matches: £4.00, $4.99, €1.50, 4.99, etc.
+const PRICE_PATTERN = /[\$\£\€\¥]?\s*\d+[.,]\d{2}/;
 
-// Lines that are likely noise (not food items)
+// Lines that are noise even if they have a price next to them
 const NOISE_PATTERNS = [
-  // Store info & headers
-  STORE_NAMES,
-  /supermarket/i,
-  /\bltd\b/i,
-  /\bplc\b/i,
-  /\binc\b\.?$/i,
-  /www\./i,
-  /\.co\./i,
-  /\.com/i,
-  /vat\s*(number|no|#|reg)/i,
-  /holborn|london|street|road|avenue|lane|drive|plaza|mall/i,
-  /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/, // UK postcode
-  /\b\d{5}(-\d{4})?\b/, // US zip code
-  /live\s*well/i,
-  /for\s*less/i,
+  // Transaction / financial lines
+  /\b(sub\s*total|subtotal|total)\b/i,
+  /\b(vat|tax|gst|hst)\b/i,
+  /\b(balance|remaining\s*balance|card\s*balance)\b/i,
+  /\b(change\s*due|cash\s*back|cashback)\b/i,
+  /\b(discount|reduction|item\s*reduction|reduced|price\s*match)\b/i,
+  /\b(saving|you\s*saved|multi\s*buy|meal\s*deal)\b/i,
+  /\b(payment|paid|tender|amount\s*due|amount\s*owing)\b/i,
+  /\b(refund|void|cancel|error)\b/i,
+  /\b(deposit|bag\s*charge|carrier\s*bag)\b/i,
 
-  // Transaction info
-  /^(sub\s*total|subtotal|total|tax|vat|gst|hst|change|cash|card|visa|master|amex|debit|credit|eftpos|balance)/i,
-  /(sub\s*total|subtotal|total)\b/i,
-  /^(thank|welcome|receipt|invoice|order|store|branch|tel|phone|fax|email|address)/i,
-  /^(date|time|trans|ref|auth|appr|terminal|operator|cashier|server|table|guest)/i,
-  /cashier\s*(confirmed|checked)/i,
-  /confirmed\s*over\s*\d+/i,
-  /think\s*\d+/i,
-  /^(save|saving|you\s*saved|reward|points|loyalty|member|discount|promo|coupon)/i,
-  /^(payment|paid|tender|amount\s*due|due|owing|net|gross)/i,
-  /number\s*of\s*items/i,
-  /\bchange\s*due\b/i,
-  /\bclub\s*card\b/i,
-  /\bnectar\b/i,
-  /\bitems?\s*\d+\b/i,
+  // Store / receipt metadata
+  /\b(sainsbury|tesco|asda|morrisons|waitrose|aldi|lidl|co-?op|m&s)\b/i,
+  /\b(smartshop|self\s*serve|hand\s*held|scan\s*&?\s*go|scan\s*and\s*go)\b/i,
+  /\b(tid\s*value|tid|mid|aid|auth\s*code|appr\s*code)\b/i,
+  /\b(club\s*card|nectar|reward|points|loyalty|member)\b/i,
+  /\b(cashier|operator|server|terminal|store\s*#?)\b/i,
+  /\b(receipt|invoice|transaction|order\s*#?)\b/i,
+  /\b(tel|phone|fax|www\.|\.co\.|\.com)\b/i,
+  /\b(ltd|plc)\b/i,
 
   // Dates, times, pure numbers
   /^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/, // dates
   /^\d{1,2}:\d{2}/, // times
-  /^[\d\s\.\-\$\£\€\¥,]+$/, // price-only lines
   /^[#\*\-=_~|]{2,}/, // separators & OCR artifacts
-  /^\s*$/, // empty lines
-  /^x{2,}/i, // xxx patterns
 ];
 
 // Pattern to detect a quantity prefix like "2x ", "3 x "
@@ -87,10 +74,14 @@ export function parseReceiptText(rawText: string): ParsedReceiptItem[] {
     // Strip trademark/registered/copyright symbols
     cleaned = cleaned.replace(/[™®©]/g, '').trim();
 
+    // ── KEY FILTER: only lines with a price are purchased items ──
+    // If a line doesn't have a price next to it, it's not an item
+    if (!PRICE_PATTERN.test(cleaned)) continue;
+
     // Skip lines that are mostly non-alphabetic (OCR garbage)
     if (isMostlyGarbage(cleaned)) continue;
 
-    // Check noise patterns
+    // Check noise patterns (transaction lines that have prices, like TOTAL £23.50)
     const isNoise = NOISE_PATTERNS.some((pattern) => pattern.test(cleaned));
     if (isNoise) continue;
 
