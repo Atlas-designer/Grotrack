@@ -8,6 +8,9 @@ import { handleAddToShoppingList } from './intents/addToShoppingList';
 import { handleWhatsExpiring } from './intents/whatsExpiring';
 import { handleRemoveItem } from './intents/removeItem';
 import { handleClearCompartment } from './intents/clearCompartment';
+import { handleCookRecipe } from './intents/cookRecipe';
+import { handleCheckRecipe } from './intents/checkRecipe';
+import { handleSuggestRecipe } from './intents/suggestRecipe';
 
 /**
  * Main Alexa webhook handler.
@@ -83,6 +86,12 @@ export async function handleAlexaRequest(req: Request, res: Response) {
           return res.json(await handleRemoveItem(body.request, houseId));
         case 'ClearCompartmentIntent':
           return res.json(await handleClearCompartment(body.request, houseId));
+        case 'CookRecipeIntent':
+          return res.json(await handleCookRecipe(body.request, houseId));
+        case 'CheckRecipeIntent':
+          return res.json(await handleCheckRecipe(body.request, houseId, uid));
+        case 'SuggestRecipeIntent':
+          return res.json(await handleSuggestRecipe(houseId));
         default:
           return res.json(speak('Sorry, I don\'t know how to handle that yet.'));
       }
