@@ -4,6 +4,7 @@ export interface BarcodeProduct {
   name: string;
   brand: string;
   category: FoodCategory;
+  sizeText: string;
 }
 
 const OFF_CATEGORY_MAP: Record<string, FoodCategory> = {
@@ -42,7 +43,6 @@ function mapCategory(tags: string[]): FoodCategory {
   for (const tag of tags) {
     if (OFF_CATEGORY_MAP[tag]) return OFF_CATEGORY_MAP[tag];
   }
-  // Check if any tag contains a mapped key
   for (const tag of tags) {
     for (const [key, cat] of Object.entries(OFF_CATEGORY_MAP)) {
       if (tag.includes(key.replace('en:', '')) || key.includes(tag.replace('en:', ''))) {
@@ -57,13 +57,57 @@ function titleCase(str: string): string {
   return str.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * Build a clean, short product name from OFF data.
+ * Priority: brand + short name > abbreviated name > brand alone > product_name (truncated)
+ */
+function buildName(product: any): string {
+  const brand = (product.brands || '').split(',')[0].trim();
+  const abbreviated = (product.abbreviated_product_name || '').trim();
+  const generic = (product.generic_name || '').trim();
+  let full = (product.product_name || '').trim();
+
+  // If brand exists, strip it from the full name to avoid "Pepsi Pepsi Max"
+  let nameWithoutBrand = full;
+  if (brand && full.toLowerCase().startsWith(brand.toLowerCase())) {
+    nameWithoutBrand = full.slice(brand.length).replace(/^[\s\-:,]+/, '').trim();
+  }
+
+  // If the full product_name is very long (legal description), prefer brand-based name
+  if (brand && full.length > 40) {
+    // Use abbreviated name if available and short
+    if (abbreviated && abbreviated.length <= 40) {
+      return titleCase(abbreviated);
+    }
+    // Use generic name if short (e.g., "Cola" instead of full description)
+    if (generic && generic.length <= 30) {
+      return titleCase(`${brand} ${generic}`);
+    }
+    // Use brand + short part of name (first few words)
+    if (nameWithoutBrand) {
+      const shortName = nameWithoutBrand.split(/\s+/).slice(0, 3).join(' ');
+      return titleCase(`${brand} ${shortName}`);
+    }
+    return titleCase(brand);
+  }
+
+  // Name is reasonable length — use brand + cleaned name, or just the name
+  if (brand && nameWithoutBrand) {
+    return titleCase(`${brand} ${nameWithoutBrand}`);
+  }
+  if (brand && !nameWithoutBrand) {
+    return titleCase(brand);
+  }
+  return titleCase(full);
+}
+
 export async function lookupBarcode(barcode: string): Promise<BarcodeProduct | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
     const res = await fetch(
-      `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,brands,categories_tags`,
+      `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,brands,quantity,categories_tags,abbreviated_product_name,generic_name`,
       {
         signal: controller.signal,
         headers: { 'User-Agent': 'Grotrack/1.0' },
@@ -71,22 +115,21 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct | n
     );
 
     const data = await res.json();
-    if (data.status !== 1 || !data.product?.product_name) return null;
+    if (data.status !== 1) return null;
 
     const product = data.product;
-    let name = product.product_name || '';
-    const brand = product.brands || '';
+    // Accept if we have at least a product_name or brand
+    if (!product?.product_name && !product?.brands) return null;
 
-    // Strip brand from start of name if duplicated
-    if (brand && name.toLowerCase().startsWith(brand.toLowerCase())) {
-      name = name.slice(brand.length).trim();
-      if (name.startsWith('-') || name.startsWith(':')) name = name.slice(1).trim();
-    }
-
-    name = titleCase(name.trim()) || titleCase(brand);
+    const name = buildName(product);
+    const brand = (product.brands || '').split(',')[0].trim();
+    const sizeText = (product.quantity || '').trim();
     const category = mapCategory(product.categories_tags || []);
 
-    return { name, brand, category };
+    // Append size to name if it's useful (e.g., "Pepsi Max 2L")
+    const displayName = sizeText ? `${name} ${sizeText}` : name;
+
+    return { name: displayName, brand, category, sizeText };
   } catch {
     return null;
   } finally {
