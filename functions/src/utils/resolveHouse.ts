@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'grotrack-alexa-secret-change-me';
+const JWT_SECRET = 'Mo6KtYsQejwzE2ZtORAXbZqUYr3rG4_qT0tSam9Oy3yxQWSGy0D92V7Gjde5SEdz';
 
 interface TokenPayload {
   sub: string; // Firebase UID

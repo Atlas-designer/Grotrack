@@ -6,6 +6,8 @@ import { handleCheckItem } from './intents/checkItem';
 import { handleListCompartment } from './intents/listCompartment';
 import { handleAddToShoppingList } from './intents/addToShoppingList';
 import { handleWhatsExpiring } from './intents/whatsExpiring';
+import { handleRemoveItem } from './intents/removeItem';
+import { handleClearCompartment } from './intents/clearCompartment';
 
 /**
  * Main Alexa webhook handler.
@@ -18,10 +20,7 @@ export async function handleAlexaRequest(req: Request, res: Response) {
 
     // LaunchRequest — user opened the skill
     if (requestType === 'LaunchRequest') {
-      return res.json(speak(
-        'Welcome to Grotrack! You can say things like "add eggs to the fridge", "what\'s in my fridge", or "what\'s expiring soon".',
-        false
-      ));
+      return res.json(speak('Opened.', false));
     }
 
     // SessionEndedRequest — cleanup
@@ -41,7 +40,7 @@ export async function handleAlexaRequest(req: Request, res: Response) {
         ));
       }
       if (intentName === 'AMAZON.CancelIntent' || intentName === 'AMAZON.StopIntent') {
-        return res.json(speak('Goodbye!'));
+        return res.json(speak('Goodbye!', true));
       }
       if (intentName === 'AMAZON.FallbackIntent') {
         return res.json(speak('Sorry, I didn\'t understand that. Try saying "help" for a list of commands.', false));
@@ -80,6 +79,10 @@ export async function handleAlexaRequest(req: Request, res: Response) {
           return res.json(await handleAddToShoppingList(body.request, houseId, uid));
         case 'WhatsExpiringIntent':
           return res.json(await handleWhatsExpiring(houseId));
+        case 'RemoveItemIntent':
+          return res.json(await handleRemoveItem(body.request, houseId));
+        case 'ClearCompartmentIntent':
+          return res.json(await handleClearCompartment(body.request, houseId));
         default:
           return res.json(speak('Sorry, I don\'t know how to handle that yet.'));
       }

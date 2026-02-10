@@ -15,7 +15,7 @@ export interface AlexaResponse {
   };
 }
 
-export function speak(text: string, endSession = true): AlexaResponse {
+export function speak(text: string, endSession = false): AlexaResponse {
   return {
     version: '1.0',
     response: {
@@ -28,7 +28,7 @@ export function speak(text: string, endSession = true): AlexaResponse {
   };
 }
 
-export function speakSSML(ssml: string, endSession = true): AlexaResponse {
+export function speakSSML(ssml: string, endSession = false): AlexaResponse {
   return {
     version: '1.0',
     response: {

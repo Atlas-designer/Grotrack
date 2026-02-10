@@ -1,6 +1,8 @@
 import * as admin from 'firebase-admin';
 import { speak, AlexaResponse } from '../../utils/response';
 import { guessUnit } from '../../utils/guessUnit';
+import { resolveCompartment } from '../../utils/compartments';
+import { getSlotValue } from '../../utils/slots';
 
 const EXPIRATION_DEFAULTS: Record<string, number> = {
   dairy: 10, meat: 4, produce: 7, frozen: 90, canned: 365,
@@ -13,33 +15,20 @@ function getExpiryDate(days: number): string {
   return d.toISOString().split('T')[0];
 }
 
-// Simple compartment mapping from slot value
-function resolveCompartment(slotValue: string | undefined): string {
-  if (!slotValue) return 'fridge';
-  const v = slotValue.toLowerCase().trim();
-  const map: Record<string, string> = {
-    fridge: 'fridge', refrigerator: 'fridge',
-    freezer: 'freezer', 'ice box': 'freezer',
-    pantry: 'pantry', cupboard: 'pantry',
-    snacks: 'snacks', 'snack drawer': 'snacks',
-    'dry ingredients': 'dry-ingredients', 'dry goods': 'dry-ingredients',
-    'wet ingredients': 'wet-ingredients', liquids: 'wet-ingredients',
-  };
-  return map[v] || 'fridge';
-}
-
 export async function handleAddItem(request: any, houseId: string, uid: string): Promise<AlexaResponse> {
   const slots = request.intent?.slots || {};
   const itemName = slots.item?.value;
   const quantity = parseInt(slots.quantity?.value, 10) || 1;
-  const compartmentSlot = slots.compartment?.resolutions?.resolutionsPerAuthority?.[0]?.values?.[0]?.value?.id
-    || slots.compartment?.value;
+  const compartmentSlot = getSlotValue(slots.compartment);
+
+  console.log('AddItem slots:', JSON.stringify(slots));
+  console.log('Resolved compartment slot:', compartmentSlot);
 
   if (!itemName) {
     return speak('What item would you like to add?', false);
   }
 
-  const compartment = resolveCompartment(compartmentSlot);
+  const { id: compartmentId, name: displayName } = await resolveCompartment(houseId, compartmentSlot);
   const unit = guessUnit(itemName);
   const name = itemName.charAt(0).toUpperCase() + itemName.slice(1).toLowerCase();
 
@@ -47,7 +36,7 @@ export async function handleAddItem(request: any, houseId: string, uid: string):
     name,
     quantity,
     unit,
-    compartment,
+    compartment: compartmentId,
     category: 'other',
     purchaseDate: new Date().toISOString().split('T')[0],
     expirationDate: getExpiryDate(EXPIRATION_DEFAULTS.other),
@@ -55,5 +44,5 @@ export async function handleAddItem(request: any, houseId: string, uid: string):
   });
 
   const qtyText = quantity > 1 ? `${quantity} ${name}` : name;
-  return speak(`Added ${qtyText} to ${compartment.replace('-', ' ')}.`);
+  return speak(`Added ${qtyText} to ${displayName}.`);
 }

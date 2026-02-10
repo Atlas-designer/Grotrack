@@ -8,9 +8,9 @@ const router = Router();
 const ALLOWED_CLIENTS: Record<string, { redirectUris: string[] }> = {
   'alexa-grotrack': {
     redirectUris: [
-      'https://layla.amazon.com/api/skill/link/',
-      'https://pitangui.amazon.com/api/skill/link/',
-      'https://alexa.amazon.co.jp/api/skill/link/',
+      'https://layla.amazon.com/api/skill/link/M1SAO2BF126RZJ',
+      'https://pitangui.amazon.com/api/skill/link/M1SAO2BF126RZJ',
+      'https://alexa.amazon.co.jp/api/skill/link/M1SAO2BF126RZJ',
     ],
   },
 };

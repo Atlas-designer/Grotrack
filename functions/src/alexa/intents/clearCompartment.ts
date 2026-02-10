@@ -3,8 +3,12 @@ import { speak, AlexaResponse } from '../../utils/response';
 import { resolveCompartment } from '../../utils/compartments';
 import { getSlotValue } from '../../utils/slots';
 
-export async function handleListCompartment(request: any, houseId: string): Promise<AlexaResponse> {
+export async function handleClearCompartment(request: any, houseId: string): Promise<AlexaResponse> {
   const compartmentSlot = getSlotValue(request.intent?.slots?.compartment);
+
+  if (!compartmentSlot) {
+    return speak('Which compartment would you like to clear?', false);
+  }
 
   const { id: compartmentId, name: displayName } = await resolveCompartment(houseId, compartmentSlot);
 
@@ -14,18 +18,12 @@ export async function handleListCompartment(request: any, houseId: string): Prom
     .get();
 
   if (snapshot.empty) {
-    return speak(`Your ${displayName} is empty.`);
+    return speak(`Your ${displayName} is already empty.`);
   }
 
-  // Get top 5 items
-  const items = snapshot.docs.slice(0, 5).map((doc) => doc.data().name);
-  const remaining = snapshot.docs.length - items.length;
+  const batch = admin.firestore().batch();
+  snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
 
-  let text = `In your ${displayName}: ${items.join(', ')}`;
-  if (remaining > 0) {
-    text += `, and ${remaining} more item${remaining !== 1 ? 's' : ''}`;
-  }
-  text += '.';
-
-  return speak(text);
+  return speak(`Cleared ${snapshot.docs.length} item${snapshot.docs.length !== 1 ? 's' : ''} from your ${displayName}.`);
 }
