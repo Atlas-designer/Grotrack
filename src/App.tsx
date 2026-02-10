@@ -19,6 +19,7 @@ import { RecipesView } from './components/recipes/RecipesView';
 import { ProfileView } from './components/profile/ProfileView';
 import { AllItemsView } from './components/inventory/AllItemsView';
 import { ReceiptScanner } from './components/scanner/ReceiptScanner';
+import { BarcodeScanner } from './components/scanner/BarcodeScanner';
 import { CompartmentType } from './types';
 import { migrateLocalInventory } from './utils/migrateLocalData';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
@@ -46,6 +47,7 @@ function AppContent() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [selectedCompartment, setSelectedCompartment] = useState<CompartmentType | null>(null);
   const [showAllItems, setShowAllItems] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>('home');
@@ -118,6 +120,7 @@ function AppContent() {
             onSearchClick={() => setIsSearchOpen(true)}
             onAddClick={() => setIsAddModalOpen(true)}
             onScanClick={() => setIsScannerOpen(true)}
+            onBarcodeScanClick={() => setIsBarcodeScannerOpen(true)}
           />
           <ExpiringBanner />
           <QuickStats onTotalClick={() => setShowAllItems(true)} />
@@ -139,6 +142,7 @@ function AppContent() {
 
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       <ReceiptScanner isOpen={isScannerOpen} onClose={() => setIsScannerOpen(false)} />
+      <BarcodeScanner isOpen={isBarcodeScannerOpen} onClose={() => setIsBarcodeScannerOpen(false)} />
     </div>
   );
 }

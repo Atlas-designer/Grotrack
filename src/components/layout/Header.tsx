@@ -1,12 +1,13 @@
-import { Search, Plus, ScanLine } from 'lucide-react';
+import { Search, Plus, ScanLine, Barcode } from 'lucide-react';
 
 interface HeaderProps {
   onSearchClick: () => void;
   onAddClick: () => void;
   onScanClick: () => void;
+  onBarcodeScanClick: () => void;
 }
 
-export function Header({ onSearchClick, onAddClick, onScanClick }: HeaderProps) {
+export function Header({ onSearchClick, onAddClick, onScanClick, onBarcodeScanClick }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 bg-navy-900/80 backdrop-blur-lg border-b border-white/5">
       <div className="flex items-center justify-between px-4 py-3">
@@ -18,6 +19,13 @@ export function Header({ onSearchClick, onAddClick, onScanClick }: HeaderProps) 
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={onBarcodeScanClick}
+            className="p-2.5 hover:bg-white/10 rounded-xl transition-colors"
+            aria-label="Scan barcode"
+          >
+            <Barcode size={20} className="text-gray-400" />
+          </button>
           <button
             onClick={onScanClick}
             className="p-2.5 hover:bg-white/10 rounded-xl transition-colors"
