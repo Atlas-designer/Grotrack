@@ -51,6 +51,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
     return initialItems.map((item): ScanItem => {
       const expandedName = expandReceiptName(item.name, nameCorrections);
       const match = lookupFood(expandedName, foodMappings);
+      const unitFromSource = (item.unit as UnitType | undefined);
       if (match) {
         const validCompartment = compartments.some((c) => c.id === match.compartment)
           ? match.compartment
@@ -60,7 +61,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
           name: expandedName,
           originalParsedName: item.name,
           barcode: item.barcode,
-          unit: guessUnit(expandedName),
+          unit: unitFromSource || guessUnit(expandedName),
           category: match.category,
           compartment: validCompartment,
           expiryDays: match.expiryDays,
@@ -73,7 +74,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
         name: expandedName,
         originalParsedName: item.name,
         barcode: item.barcode,
-        unit: guessUnit(expandedName),
+        unit: unitFromSource || guessUnit(expandedName),
         category: 'other',
         compartment: compartments[0]?.id || 'fridge',
         expiryDays: 30,

@@ -1,10 +1,12 @@
-import { FoodCategory } from '../types';
+import { FoodCategory, UnitType } from '../types';
 
 export interface BarcodeProduct {
   name: string;
   brand: string;
   category: FoodCategory;
   sizeText: string;
+  parsedQuantity?: number;
+  parsedUnit?: UnitType;
 }
 
 const OFF_CATEGORY_MAP: Record<string, FoodCategory> = {
@@ -58,6 +60,78 @@ function titleCase(str: string): string {
 }
 
 /**
+ * Strip junk words from product names:
+ * - Leading counts ("12 Free Range Eggs" → "Free Range Eggs")
+ * - Percentages + "fat" ("1.8% Fat" → "")
+ * - Nationality words ("British", "Scottish")
+ * - Filler descriptors ("Free Range", "Fresh")
+ */
+function cleanName(name: string): string {
+  let c = name;
+  // Strip leading count (e.g., "12 Free Range Eggs")
+  c = c.replace(/^\d+\s+/, '');
+  // Strip percentage + optional "fat" (e.g., "1.8% Fat")
+  c = c.replace(/\d+\.?\d*%\s*(fat\s*)?/gi, '');
+  // Strip nationality words
+  c = c.replace(/\b(British|Scottish|Welsh|English|Irish|European)\b\s*/gi, '');
+  // Strip "Free Range"
+  c = c.replace(/\bfree\s+range\b\s*/gi, '');
+  // Strip "Fresh" (filler when alongside other descriptors)
+  c = c.replace(/\bfresh\b\s*/gi, '');
+  // Clean up double spaces
+  c = c.replace(/\s{2,}/g, ' ').trim();
+  return c || name;
+}
+
+/**
+ * Parse OFF quantity/size text into a numeric quantity and unit.
+ * Handles: "4 pints", "300 ml", "2.272 l", "500 g", "1.5 kg",
+ *          "6 x 330 ml", "8 x 24.6g", "12" (pure count)
+ */
+function parseSizeText(sizeText: string): { quantity: number; unit: UnitType } | null {
+  if (!sizeText) return null;
+  const s = sizeText.toLowerCase().trim();
+
+  // Multipack: "6 x 330 ml", "8 x 24.6g" → count of items
+  const multiMatch = s.match(/^(\d+)\s*x\s/);
+  if (multiMatch) return { quantity: parseInt(multiMatch[1]), unit: 'pieces' };
+
+  // Pints → convert to ml/L
+  const pintMatch = s.match(/^([\d.]+)\s*pints?\b/);
+  if (pintMatch) {
+    const totalMl = parseFloat(pintMatch[1]) * 568;
+    if (totalMl >= 1000) return { quantity: Math.round(totalMl / 10) / 100, unit: 'L' };
+    return { quantity: Math.round(totalMl), unit: 'ml' };
+  }
+
+  // Litres
+  const lMatch = s.match(/^([\d.]+)\s*l\b/);
+  if (lMatch) return { quantity: parseFloat(lMatch[1]), unit: 'L' };
+
+  // Millilitres
+  const mlMatch = s.match(/^([\d.]+)\s*ml\b/);
+  if (mlMatch) return { quantity: parseFloat(mlMatch[1]), unit: 'ml' };
+
+  // Centilitres → ml
+  const clMatch = s.match(/^([\d.]+)\s*cl\b/);
+  if (clMatch) return { quantity: parseFloat(clMatch[1]) * 10, unit: 'ml' };
+
+  // Kilograms
+  const kgMatch = s.match(/^([\d.]+)\s*kg\b/);
+  if (kgMatch) return { quantity: parseFloat(kgMatch[1]), unit: 'kg' };
+
+  // Grams
+  const gMatch = s.match(/^([\d.]+)\s*g\b/);
+  if (gMatch) return { quantity: parseFloat(gMatch[1]), unit: 'g' };
+
+  // Pure count: "12"
+  const countMatch = s.match(/^(\d+)$/);
+  if (countMatch) return { quantity: parseInt(countMatch[1]), unit: 'pieces' };
+
+  return null;
+}
+
+/**
  * Build a clean, short product name from OFF data.
  * Priority: brand + short name > abbreviated name > brand alone > product_name (truncated)
  */
@@ -77,28 +151,28 @@ function buildName(product: any): string {
   if (brand && full.length > 40) {
     // Use abbreviated name if available and short
     if (abbreviated && abbreviated.length <= 40) {
-      return titleCase(abbreviated);
+      return titleCase(cleanName(abbreviated));
     }
     // Use generic name if short (e.g., "Cola" instead of full description)
     if (generic && generic.length <= 30) {
-      return titleCase(`${brand} ${generic}`);
+      return titleCase(cleanName(`${brand} ${generic}`));
     }
     // Use brand + short part of name (first few words)
     if (nameWithoutBrand) {
       const shortName = nameWithoutBrand.split(/\s+/).slice(0, 3).join(' ');
-      return titleCase(`${brand} ${shortName}`);
+      return titleCase(cleanName(`${brand} ${shortName}`));
     }
     return titleCase(brand);
   }
 
   // Name is reasonable length — use brand + cleaned name, or just the name
   if (brand && nameWithoutBrand) {
-    return titleCase(`${brand} ${nameWithoutBrand}`);
+    return titleCase(cleanName(`${brand} ${nameWithoutBrand}`));
   }
   if (brand && !nameWithoutBrand) {
     return titleCase(brand);
   }
-  return titleCase(full);
+  return titleCase(cleanName(full));
 }
 
 const OVERRIDE_KEY = 'grotrack_barcode_names';
@@ -142,18 +216,22 @@ export async function lookupBarcode(barcode: string): Promise<BarcodeProduct | n
     if (data.status !== 1) return null;
 
     const product = data.product;
-    // Accept if we have at least a product_name or brand
     if (!product?.product_name && !product?.brands) return null;
 
     const name = buildName(product);
     const brand = (product.brands || '').split(',')[0].trim();
     const sizeText = (product.quantity || '').trim();
     const category = mapCategory(product.categories_tags || []);
+    const parsed = parseSizeText(sizeText);
 
-    // Append size to name if it's useful (e.g., "Pepsi Max 2L")
-    const displayName = sizeText ? `${name} ${sizeText}` : name;
-
-    return { name: displayName, brand, category, sizeText };
+    return {
+      name,
+      brand,
+      category,
+      sizeText,
+      parsedQuantity: parsed?.quantity,
+      parsedUnit: parsed?.unit,
+    };
   } catch {
     return null;
   } finally {

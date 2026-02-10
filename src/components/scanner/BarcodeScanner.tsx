@@ -15,6 +15,8 @@ interface ScannedItem {
   barcode: string;
   name: string;
   quantity: number;
+  packQuantity: number;
+  unit: string;
   category: string;
   lookupFailed: boolean;
 }
@@ -86,12 +88,11 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
           aspectRatio: 1.0,
         },
         async (decodedText) => {
-          // Dedup check — increment quantity if same barcode scanned again
+          // Dedup check — increment by pack quantity if same barcode scanned again
           if (scannedCodesRef.current.has(decodedText)) {
-            const existingName = scannedCodesRef.current.get(decodedText)!;
             setScannedItems((prev) => prev.map((item) =>
-              item.name.toLowerCase() === existingName.toLowerCase()
-                ? { ...item, quantity: item.quantity + 1 }
+              item.barcode === decodedText
+                ? { ...item, quantity: item.quantity + item.packQuantity }
                 : item
             ));
             setLastScanned(decodedText);
@@ -110,6 +111,8 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
           setIsLookingUp(false);
 
           if (product) {
+            const packQty = product.parsedQuantity || 1;
+            const unit = product.parsedUnit || 'pieces';
             scannedCodesRef.current.set(decodedText, product.name);
             setScannedItems((prev) => {
               // Check if same product name already scanned via different barcode
@@ -120,14 +123,16 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
                 const updated = [...prev];
                 updated[existingIdx] = {
                   ...updated[existingIdx],
-                  quantity: updated[existingIdx].quantity + 1,
+                  quantity: updated[existingIdx].quantity + packQty,
                 };
                 return updated;
               }
               return [...prev, {
                 barcode: decodedText,
                 name: product.name,
-                quantity: 1,
+                quantity: packQty,
+                packQuantity: packQty,
+                unit,
                 category: product.category,
                 lookupFailed: false,
               }];
@@ -138,6 +143,8 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
               barcode: decodedText,
               name: '',
               quantity: 1,
+              packQuantity: 1,
+              unit: 'pieces',
               category: 'other',
               lookupFailed: true,
             }]);
@@ -178,6 +185,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
       quantity: item.quantity,
       selected: true,
       barcode: item.barcode,
+      unit: item.unit,
     }));
     setParsedItems(reviewItems);
     setShowResults(true);
@@ -305,7 +313,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
                     ) : (
                       <p className="text-white text-sm font-medium truncate">{item.name}</p>
                     )}
-                    <p className="text-gray-500 text-xs">Qty: {item.quantity}</p>
+                    <p className="text-gray-500 text-xs">Qty: {item.quantity} {item.unit !== 'pieces' ? item.unit : ''}</p>
                   </div>
                   <button
                     onClick={() => handleRemoveItem(idx)}
