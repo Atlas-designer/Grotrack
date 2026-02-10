@@ -8,6 +8,9 @@ export interface ParsedReceiptItem {
 // Matches: £4.00, $4.99, €1.50, 4.99, etc.
 const PRICE_PATTERN = /[\$\£\€\¥]?\s*\d+[.,]\d{2}/;
 
+// Negative prices indicate savings/reductions (Nectar, coupons, etc.)
+const NEGATIVE_PRICE = /[-–—]\s*[\$\£\€\¥]?\s*\d+[.,]\d{2}/;
+
 // Lines that are noise even if they have a price next to them
 const NOISE_PATTERNS = [
   // Transaction / financial lines
@@ -20,6 +23,21 @@ const NOISE_PATTERNS = [
   /\b(payment|paid|tender|amount\s*due|amount\s*owing)\b/i,
   /\b(refund|void|cancel|error)\b/i,
   /\b(deposit|bag\s*charge|carrier\s*bag|bag\s*for\s*life|bag)\b/i,
+
+  // Age checks / verification
+  /\bthink\s*25\b/i,
+  /\bcashier\s*confirmed\b/i,
+  /\bover\s*\d+\b/i,
+
+  // Payment methods / card details
+  /\b(amex|visa|mastercard|maestro|debit|credit)\b/i,
+  /\bcontactless\b/i,
+  /\bbalance\s*due\b/i,
+  /\bcard\s*(number|no|ending)\b/i,
+
+  // Price labels
+  /\b(original\s*price|was\s*price)\b/i,
+  /\b(price|priced)\b/i,
 
   // Store / receipt metadata
   /\b(sainsbury|tesco|asda|morrisons|waitrose|aldi|lidl|co-?op|m&s)\b/i,
@@ -77,6 +95,9 @@ export function parseReceiptText(rawText: string): ParsedReceiptItem[] {
     // ── KEY FILTER: only lines with a price are purchased items ──
     // If a line doesn't have a price next to it, it's not an item
     if (!PRICE_PATTERN.test(cleaned)) continue;
+
+    // Skip negative prices (Nectar savings, reductions, coupons)
+    if (NEGATIVE_PRICE.test(cleaned)) continue;
 
     // Skip lines that are mostly non-alphabetic (OCR garbage)
     if (isMostlyGarbage(cleaned)) continue;

@@ -21,6 +21,7 @@ import { AllItemsView } from './components/inventory/AllItemsView';
 import { ReceiptScanner } from './components/scanner/ReceiptScanner';
 import { CompartmentType } from './types';
 import { migrateLocalInventory } from './utils/migrateLocalData';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { Loader2 } from 'lucide-react';
 
 function SplashScreen() {
@@ -145,6 +146,9 @@ function AppContent() {
 function App() {
   const { user, loading: authLoading } = useAuth();
   const { activeHouseId, loading: houseLoading } = useHouse();
+
+  // Public routes (no auth required)
+  if (window.location.pathname === '/privacy') return <PrivacyPolicy />;
 
   // Show splash while auth is resolving
   if (authLoading) return <SplashScreen />;
