@@ -2,6 +2,7 @@ export interface ParsedReceiptItem {
   name: string;
   quantity: number;
   selected: boolean;
+  barcode?: string;
 }
 
 // A line must contain a price to be considered a purchased item

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { ArrowLeft, Check, Package, BookmarkPlus, HelpCircle } from 'lucide-react';
 import { ParsedReceiptItem } from '../../utils/receiptParser';
 import { expandReceiptName } from '../../utils/receiptAbbreviations';
+import { saveBarcodeOverride } from '../../utils/barcodeApi';
 import { lookupFood } from '../../utils/foodDatabase';
 import { getFoodIcon } from '../../utils/foodIcons';
 import { guessUnit } from '../../utils/guessUnit';
@@ -12,6 +13,7 @@ import { FoodCategory, UnitType } from '../../types';
 interface ScanItem {
   name: string;
   originalParsedName: string;
+  barcode?: string;
   quantity: number;
   unit: UnitType;
   selected: boolean;
@@ -57,6 +59,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
           ...item,
           name: expandedName,
           originalParsedName: item.name,
+          barcode: item.barcode,
           unit: guessUnit(expandedName),
           category: match.category,
           compartment: validCompartment,
@@ -69,6 +72,7 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
         ...item,
         name: expandedName,
         originalParsedName: item.name,
+        barcode: item.barcode,
         unit: guessUnit(expandedName),
         category: 'other',
         compartment: compartments[0]?.id || 'fridge',
@@ -182,6 +186,10 @@ export function ScanResultsView({ items: initialItems, onBack, onDone }: ScanRes
         const current = item.name.trim();
         if (orig && current && orig !== current.toLowerCase()) {
           saveNameCorrection(orig, current).catch(() => {});
+        }
+        // Save barcode→name override so future scans use the edited name
+        if (item.barcode && current) {
+          saveBarcodeOverride(item.barcode, current, item.category);
         }
       }
 

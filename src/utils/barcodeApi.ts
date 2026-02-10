@@ -101,7 +101,31 @@ function buildName(product: any): string {
   return titleCase(full);
 }
 
+const OVERRIDE_KEY = 'grotrack_barcode_names';
+
+function getOverrides(): Record<string, BarcodeProduct> {
+  try {
+    return JSON.parse(localStorage.getItem(OVERRIDE_KEY) || '{}');
+  } catch { return {}; }
+}
+
+export function saveBarcodeOverride(barcode: string, name: string, category: FoodCategory): void {
+  const overrides = getOverrides();
+  const existing = overrides[barcode];
+  overrides[barcode] = {
+    name,
+    brand: existing?.brand || '',
+    category,
+    sizeText: existing?.sizeText || '',
+  };
+  localStorage.setItem(OVERRIDE_KEY, JSON.stringify(overrides));
+}
+
 export async function lookupBarcode(barcode: string): Promise<BarcodeProduct | null> {
+  // Check user overrides first (edited names from previous scans)
+  const override = getOverrides()[barcode];
+  if (override) return override;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 

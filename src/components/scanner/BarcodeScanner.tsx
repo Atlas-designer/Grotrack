@@ -12,6 +12,7 @@ interface BarcodeScannerProps {
 }
 
 interface ScannedItem {
+  barcode: string;
   name: string;
   quantity: number;
   category: string;
@@ -124,6 +125,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
                 return updated;
               }
               return [...prev, {
+                barcode: decodedText,
                 name: product.name,
                 quantity: 1,
                 category: product.category,
@@ -133,6 +135,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
           } else {
             scannedCodesRef.current.set(decodedText, '');
             setScannedItems((prev) => [...prev, {
+              barcode: decodedText,
               name: '',
               quantity: 1,
               category: 'other',
@@ -174,6 +177,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
       name: item.name || 'Unknown Item',
       quantity: item.quantity,
       selected: true,
+      barcode: item.barcode,
     }));
     setParsedItems(reviewItems);
     setShowResults(true);
