@@ -349,21 +349,24 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="relative bg-black flex-shrink-0" style={{ minHeight: 320 }}>
-          {/* Native path: our own video element */}
+          {/* Native path: video element is ALWAYS rendered (never display:none)
+              so that video.play() works on mobile browsers */}
           <video
             ref={videoRef}
             className="w-full object-cover"
-            style={{ minHeight: 320, display: usingNative ? 'block' : 'none' }}
+            style={{ minHeight: 320 }}
             playsInline
             muted
             autoPlay
           />
-          {/* Fallback path: html5-qrcode managed element */}
-          <div
-            id="barcode-reader"
-            className="w-full"
-            style={{ minHeight: 320, display: !usingNative && scannerReady ? 'block' : 'none' }}
-          />
+          {/* Fallback path: html5-qrcode managed element — layered on top of video */}
+          {!usingNative && (
+            <div
+              id="barcode-reader"
+              className="absolute inset-0 w-full"
+              style={{ minHeight: 320, display: scannerReady ? 'block' : 'none' }}
+            />
+          )}
 
           {/* Scan guide overlay for native mode */}
           {usingNative && scannerReady && (
