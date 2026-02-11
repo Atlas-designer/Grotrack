@@ -138,19 +138,27 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
           Html5QrcodeSupportedFormats.ITF,
         ],
         verbose: false,
+        // Use native BarcodeDetector when available (hardware-accelerated on
+        // Android Chrome) while html5-qrcode still manages the camera/video.
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
       });
       scannerRef.current = scanner;
 
       await scanner.start(
         { facingMode: 'environment' },
         {
-          fps: 10,
+          fps: 15,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const w = Math.min(Math.floor(viewfinderWidth * 0.85), 500);
-            const h = Math.min(Math.floor(viewfinderHeight * 0.5), 250);
+            const w = Math.min(Math.floor(viewfinderWidth * 0.9), 600);
+            const h = Math.min(Math.floor(viewfinderHeight * 0.6), 300);
             return { width: w, height: h };
           },
           aspectRatio: 1.7778,
+          videoConstraints: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
         },
         (decodedText: string) => { handleDetected(decodedText); },
         undefined
