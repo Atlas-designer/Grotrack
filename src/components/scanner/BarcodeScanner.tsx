@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Barcode, Trash2, Loader2 } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { lookupBarcode, BarcodeProduct } from '../../utils/barcodeApi';
 import { ParsedReceiptItem } from '../../utils/receiptParser';
 import { ScanResultsView } from './ScanResultsView';
@@ -77,18 +77,28 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
     if (!el || scannerRef.current) return;
 
     try {
-      const scanner = new Html5Qrcode('barcode-reader');
+      const scanner = new Html5Qrcode('barcode-reader', {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+        ],
+        useBarCodeDetectorIfSupported: true,
+        verbose: false,
+      });
       scannerRef.current = scanner;
 
       await scanner.start(
-        { facingMode: 'environment' },
+        { facingMode: { exact: 'environment' } },
         {
-          fps: 10,
-          qrbox: { width: 280, height: 150 },
-          aspectRatio: 1.0,
+          fps: 15,
+          qrbox: { width: 300, height: 180 },
         },
         async (decodedText) => {
-          // Dedup check — increment by pack quantity if same barcode scanned again
+          // Dedup: if already scanned or in-flight, just increment
           if (scannedCodesRef.current.has(decodedText)) {
             setScannedItems((prev) => prev.map((item) =>
               item.barcode === decodedText
@@ -100,6 +110,9 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
             navigator.vibrate?.(50);
             return;
           }
+
+          // Mark immediately to prevent parallel lookups for the same barcode
+          scannedCodesRef.current.set(decodedText, '');
           setLastScanned(decodedText);
           playBeep();
           navigator.vibrate?.(100);
@@ -138,7 +151,6 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
               }];
             });
           } else {
-            scannedCodesRef.current.set(decodedText, '');
             setScannedItems((prev) => [...prev, {
               barcode: decodedText,
               name: '',
