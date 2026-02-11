@@ -58,13 +58,14 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
   const [scannerReady, setScannerReady] = useState(false);
   const [lastScanned, setLastScanned] = useState('');
 
+  const [usingNative, setUsingNative] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number>(0);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannedCodesRef = useRef<Map<string, string>>(new Map());
   const mountedRef = useRef(true);
-  const usingNativeRef = useRef(false);
 
   const handleDetected = useCallback(async (decodedText: string) => {
     if (scannedCodesRef.current.has(decodedText)) return;
@@ -137,6 +138,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
     } catch {
       scannerRef.current = null;
     }
+    setUsingNative(false);
     setScannerReady(false);
   }, []);
 
@@ -176,8 +178,8 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
       const hasImageCapture = 'ImageCapture' in window;
       const imageCapture = hasImageCapture ? new (window as any).ImageCapture(track) : null;
 
+      setUsingNative(true);
       setScannerReady(true);
-      usingNativeRef.current = true;
 
       // Scan every 150ms — gives camera time to focus between frames
       const intervalId = window.setInterval(async () => {
@@ -259,7 +261,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
 
   const startScanner = useCallback(async () => {
     setCameraError('');
-    usingNativeRef.current = false;
+    setUsingNative(false);
 
     const nativeOk = await canUseNativeDetector();
     if (nativeOk) {
@@ -351,7 +353,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
           <video
             ref={videoRef}
             className="w-full object-cover"
-            style={{ minHeight: 320, display: usingNativeRef.current ? 'block' : 'none' }}
+            style={{ minHeight: 320, display: usingNative ? 'block' : 'none' }}
             playsInline
             muted
             autoPlay
@@ -360,11 +362,11 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
           <div
             id="barcode-reader"
             className="w-full"
-            style={{ minHeight: 320, display: !usingNativeRef.current && scannerReady ? 'block' : 'none' }}
+            style={{ minHeight: 320, display: !usingNative && scannerReady ? 'block' : 'none' }}
           />
 
           {/* Scan guide overlay for native mode */}
-          {usingNativeRef.current && scannerReady && (
+          {usingNative && scannerReady && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="w-72 h-36 border-2 border-white/40 rounded-lg" />
             </div>
