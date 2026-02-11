@@ -38,17 +38,6 @@ function playBeep() {
   }
 }
 
-/** Runtime check: does BarcodeDetector actually work (not just exist)? */
-async function canUseNativeDetector(): Promise<boolean> {
-  try {
-    if (!('BarcodeDetector' in window)) return false;
-    const formats = await (window as any).BarcodeDetector.getSupportedFormats();
-    return Array.isArray(formats) && formats.includes('ean_13');
-  } catch {
-    return false;
-  }
-}
-
 export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -58,11 +47,6 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
   const [scannerReady, setScannerReady] = useState(false);
   const [lastScanned, setLastScanned] = useState('');
 
-  const [usingNative, setUsingNative] = useState(false);
-
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scanTimerRef = useRef<number>(0);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannedCodesRef = useRef<Map<string, string>>(new Map());
   const mountedRef = useRef(true);
@@ -70,6 +54,7 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
   const handleDetected = useCallback(async (decodedText: string) => {
     if (scannedCodesRef.current.has(decodedText)) return;
 
+    // Mark immediately to prevent duplicate lookups from rapid detections
     scannedCodesRef.current.set(decodedText, '');
     setLastScanned(decodedText);
     playBeep();
@@ -121,14 +106,6 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
   }, []);
 
   const stopScanner = useCallback(async () => {
-    if (scanTimerRef.current) {
-      clearInterval(scanTimerRef.current);
-      scanTimerRef.current = 0;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
     try {
       if (scannerRef.current?.isScanning) {
         await scannerRef.current.stop();
@@ -138,84 +115,13 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
     } catch {
       scannerRef.current = null;
     }
-    setUsingNative(false);
     setScannerReady(false);
   }, []);
 
-  const startNativeScanner = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1920, min: 1280 },
-          height: { ideal: 1080, min: 720 },
-        },
-      });
-      streamRef.current = stream;
+  const startScanner = useCallback(async () => {
+    setCameraError('');
 
-      // Request continuous autofocus if available
-      const track = stream.getVideoTracks()[0];
-      try {
-        const caps = track.getCapabilities?.() as any;
-        if (caps?.focusMode?.includes?.('continuous')) {
-          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
-        }
-      } catch { /* focus mode not supported */ }
-
-      const video = videoRef.current;
-      if (!video || !mountedRef.current) {
-        stream.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      video.srcObject = stream;
-      await video.play();
-
-      const detector = new (window as any).BarcodeDetector({
-        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'],
-      });
-
-      // Use ImageCapture for full-resolution frame grabs when available
-      const hasImageCapture = 'ImageCapture' in window;
-      const imageCapture = hasImageCapture ? new (window as any).ImageCapture(track) : null;
-
-      setUsingNative(true);
-      setScannerReady(true);
-
-      // Scan every 150ms — gives camera time to focus between frames
-      const intervalId = window.setInterval(async () => {
-        if (!mountedRef.current || !video.srcObject) return;
-        try {
-          let source: any = video;
-          // Prefer grabFrame() for full camera resolution
-          if (imageCapture) {
-            try {
-              source = await imageCapture.grabFrame();
-            } catch {
-              source = video; // Fall back to video element
-            }
-          }
-          const barcodes = await detector.detect(source);
-          for (const bc of barcodes) {
-            if (bc.rawValue) {
-              handleDetected(bc.rawValue);
-              break;
-            }
-          }
-        } catch {
-          // Detection error, continue
-        }
-      }, 150);
-      scanTimerRef.current = intervalId;
-    } catch (err: any) {
-      if (err?.name === 'NotAllowedError') {
-        setCameraError('Camera access denied. Please allow camera access in your browser settings.');
-      } else {
-        setCameraError('Could not start camera. Please try again.');
-      }
-    }
-  }, [handleDetected]);
-
-  const startFallbackScanner = useCallback(async () => {
+    // Small delay to ensure the DOM element is available
     await new Promise((r) => setTimeout(r, 300));
     const el = document.getElementById('barcode-reader');
     if (!el || scannerRef.current) return;
@@ -240,11 +146,11 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
         {
           fps: 10,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            // Use 80% of the viewfinder width for a large scan region
-            const w = Math.min(Math.floor(viewfinderWidth * 0.8), 400);
-            const h = Math.min(Math.floor(viewfinderHeight * 0.4), 200);
+            const w = Math.min(Math.floor(viewfinderWidth * 0.85), 500);
+            const h = Math.min(Math.floor(viewfinderHeight * 0.5), 250);
             return { width: w, height: h };
           },
+          aspectRatio: 1.7778,
         },
         (decodedText: string) => { handleDetected(decodedText); },
         undefined
@@ -258,18 +164,6 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
       }
     }
   }, [handleDetected]);
-
-  const startScanner = useCallback(async () => {
-    setCameraError('');
-    setUsingNative(false);
-
-    const nativeOk = await canUseNativeDetector();
-    if (nativeOk) {
-      await startNativeScanner();
-    } else {
-      await startFallbackScanner();
-    }
-  }, [startNativeScanner, startFallbackScanner]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -349,31 +243,8 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="relative bg-black flex-shrink-0" style={{ minHeight: 320 }}>
-          {/* Native path: video element is ALWAYS rendered (never display:none)
-              so that video.play() works on mobile browsers */}
-          <video
-            ref={videoRef}
-            className="w-full object-cover"
-            style={{ minHeight: 320 }}
-            playsInline
-            muted
-            autoPlay
-          />
-          {/* Fallback path: html5-qrcode managed element — layered on top of video */}
-          {!usingNative && (
-            <div
-              id="barcode-reader"
-              className="absolute inset-0 w-full"
-              style={{ minHeight: 320, display: scannerReady ? 'block' : 'none' }}
-            />
-          )}
-
-          {/* Scan guide overlay for native mode */}
-          {usingNative && scannerReady && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-72 h-36 border-2 border-white/40 rounded-lg" />
-            </div>
-          )}
+          {/* html5-qrcode manages its own video element inside this div */}
+          <div id="barcode-reader" className="w-full" style={{ minHeight: 320 }} />
 
           {!scannerReady && !cameraError && (
             <div className="absolute inset-0 flex items-center justify-center bg-navy-950">
