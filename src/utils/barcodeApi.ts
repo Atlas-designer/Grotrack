@@ -153,8 +153,8 @@ function buildName(product: any): string {
     if (abbreviated && abbreviated.length <= 40) {
       return titleCase(cleanName(abbreviated));
     }
-    // Use generic name if short (e.g., "Cola" instead of full description)
-    if (generic && generic.length <= 30) {
+    // Use generic name if short and different from brand (avoid "Pepsi Max Pepsi Max")
+    if (generic && generic.length <= 30 && generic.toLowerCase() !== brand.toLowerCase()) {
       return titleCase(cleanName(`${brand} ${generic}`));
     }
     // Use brand + short part of name (first few words)

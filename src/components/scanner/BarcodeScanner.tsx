@@ -6,6 +6,17 @@ import { ParsedReceiptItem } from '../../utils/receiptParser';
 import { ScanResultsView } from './ScanResultsView';
 import { getFoodIcon } from '../../utils/foodIcons';
 
+// Type declaration for the native BarcodeDetector API
+declare global {
+  interface Window {
+    BarcodeDetector?: new (opts?: { formats: string[] }) => {
+      detect(source: HTMLVideoElement | ImageBitmapSource): Promise<{ rawValue: string }[]>;
+    };
+  }
+}
+
+const HAS_NATIVE_DETECTOR = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+
 interface BarcodeScannerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -47,32 +58,147 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
   const [scannerReady, setScannerReady] = useState(false);
   const [lastScanned, setLastScanned] = useState('');
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animFrameRef = useRef<number>(0);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannedCodesRef = useRef<Map<string, string>>(new Map());
   const mountedRef = useRef(true);
 
-  const stopScanner = useCallback(async () => {
-    try {
-      if (scannerRef.current) {
-        const isScanning = scannerRef.current.isScanning;
-        if (isScanning) {
-          await scannerRef.current.stop();
+  // Shared handler for a decoded barcode (used by both native and fallback paths)
+  const handleDetected = useCallback(async (decodedText: string) => {
+    // Dedup: if already scanned or in-flight, skip silently
+    if (scannedCodesRef.current.has(decodedText)) return;
+
+    // Mark immediately to prevent parallel lookups
+    scannedCodesRef.current.set(decodedText, '');
+    setLastScanned(decodedText);
+    playBeep();
+    navigator.vibrate?.(100);
+    setIsLookingUp(true);
+
+    const product: BarcodeProduct | null = await lookupBarcode(decodedText);
+
+    if (!mountedRef.current) return;
+    setIsLookingUp(false);
+
+    if (product) {
+      const packQty = product.parsedQuantity || 1;
+      const unit = product.parsedUnit || 'pieces';
+      scannedCodesRef.current.set(decodedText, product.name);
+      setScannedItems((prev) => {
+        const existingIdx = prev.findIndex(
+          (p) => p.name.toLowerCase() === product.name.toLowerCase()
+        );
+        if (existingIdx >= 0) {
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            quantity: updated[existingIdx].quantity + packQty,
+          };
+          return updated;
         }
-        scannerRef.current.clear();
-        scannerRef.current = null;
+        return [...prev, {
+          barcode: decodedText,
+          name: product.name,
+          quantity: packQty,
+          packQuantity: packQty,
+          unit,
+          category: product.category,
+          lookupFailed: false,
+        }];
+      });
+    } else {
+      setScannedItems((prev) => [...prev, {
+        barcode: decodedText,
+        name: '',
+        quantity: 1,
+        packQuantity: 1,
+        unit: 'pieces',
+        category: 'other',
+        lookupFailed: true,
+      }]);
+    }
+  }, []);
+
+  const stopScanner = useCallback(async () => {
+    // Stop native detection loop
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+    }
+    // Stop camera stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    // Stop html5-qrcode fallback
+    try {
+      if (scannerRef.current?.isScanning) {
+        await scannerRef.current.stop();
       }
+      scannerRef.current?.clear();
+      scannerRef.current = null;
     } catch {
       scannerRef.current = null;
     }
     setScannerReady(false);
   }, []);
 
-  const startScanner = useCallback(async () => {
-    setCameraError('');
+  const startNativeScanner = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+      });
+      streamRef.current = stream;
 
-    // Wait for DOM element
+      const video = videoRef.current;
+      if (!video || !mountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      video.srcObject = stream;
+      await video.play();
+
+      const detector = new window.BarcodeDetector!({
+        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'],
+      });
+
+      setScannerReady(true);
+
+      const scan = async () => {
+        if (!mountedRef.current || !video.srcObject) return;
+        try {
+          if (video.readyState >= video.HAVE_ENOUGH_DATA) {
+            const barcodes = await detector.detect(video);
+            for (const bc of barcodes) {
+              if (bc.rawValue) {
+                handleDetected(bc.rawValue);
+                break; // One at a time
+              }
+            }
+          }
+        } catch {
+          // Detection error, continue scanning
+        }
+        animFrameRef.current = requestAnimationFrame(scan);
+      };
+      animFrameRef.current = requestAnimationFrame(scan);
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError') {
+        setCameraError('Camera access denied. Please allow camera access in your browser settings.');
+      } else {
+        setCameraError('Could not start camera. Please try again.');
+      }
+    }
+  }, [handleDetected]);
+
+  const startFallbackScanner = useCallback(async () => {
     await new Promise((r) => setTimeout(r, 300));
-
     const el = document.getElementById('barcode-reader');
     if (!el || scannerRef.current) return;
 
@@ -86,85 +212,16 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.CODE_39,
         ],
-        useBarCodeDetectorIfSupported: true,
         verbose: false,
       });
       scannerRef.current = scanner;
 
       await scanner.start(
-        { facingMode: { exact: 'environment' } },
-        {
-          fps: 15,
-          qrbox: { width: 300, height: 180 },
-        },
-        async (decodedText) => {
-          // Dedup: if already scanned or in-flight, just increment
-          if (scannedCodesRef.current.has(decodedText)) {
-            setScannedItems((prev) => prev.map((item) =>
-              item.barcode === decodedText
-                ? { ...item, quantity: item.quantity + item.packQuantity }
-                : item
-            ));
-            setLastScanned(decodedText);
-            playBeep();
-            navigator.vibrate?.(50);
-            return;
-          }
-
-          // Mark immediately to prevent parallel lookups for the same barcode
-          scannedCodesRef.current.set(decodedText, '');
-          setLastScanned(decodedText);
-          playBeep();
-          navigator.vibrate?.(100);
-          setIsLookingUp(true);
-
-          const product: BarcodeProduct | null = await lookupBarcode(decodedText);
-
-          if (!mountedRef.current) return;
-          setIsLookingUp(false);
-
-          if (product) {
-            const packQty = product.parsedQuantity || 1;
-            const unit = product.parsedUnit || 'pieces';
-            scannedCodesRef.current.set(decodedText, product.name);
-            setScannedItems((prev) => {
-              // Check if same product name already scanned via different barcode
-              const existingIdx = prev.findIndex(
-                (p) => p.name.toLowerCase() === product.name.toLowerCase()
-              );
-              if (existingIdx >= 0) {
-                const updated = [...prev];
-                updated[existingIdx] = {
-                  ...updated[existingIdx],
-                  quantity: updated[existingIdx].quantity + packQty,
-                };
-                return updated;
-              }
-              return [...prev, {
-                barcode: decodedText,
-                name: product.name,
-                quantity: packQty,
-                packQuantity: packQty,
-                unit,
-                category: product.category,
-                lookupFailed: false,
-              }];
-            });
-          } else {
-            setScannedItems((prev) => [...prev, {
-              barcode: decodedText,
-              name: '',
-              quantity: 1,
-              packQuantity: 1,
-              unit: 'pieces',
-              category: 'other',
-              lookupFailed: true,
-            }]);
-          }
-        },
-        undefined // ignore decode errors (no barcode in frame)
+        { facingMode: 'environment' },
+        { fps: 15, qrbox: { width: 300, height: 180 } },
+        (decodedText) => { handleDetected(decodedText); },
+        undefined
       );
-
       setScannerReady(true);
     } catch (err: any) {
       if (err?.name === 'NotAllowedError' || err?.message?.includes('Permission')) {
@@ -173,7 +230,16 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
         setCameraError('Could not start camera. Please try again.');
       }
     }
-  }, []);
+  }, [handleDetected]);
+
+  const startScanner = useCallback(async () => {
+    setCameraError('');
+    if (HAS_NATIVE_DETECTOR) {
+      await startNativeScanner();
+    } else {
+      await startFallbackScanner();
+    }
+  }, [startNativeScanner, startFallbackScanner]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -206,7 +272,6 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
   const handleBack = () => {
     setShowResults(false);
     setParsedItems(null);
-    // Scanner will restart via useEffect
   };
 
   const handleDone = () => {
@@ -255,8 +320,28 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Camera viewfinder */}
-        <div className="relative bg-black flex-shrink-0">
-          <div id="barcode-reader" className="w-full" style={{ minHeight: 280 }} />
+        <div className="relative bg-black flex-shrink-0" style={{ minHeight: 300 }}>
+          {/* Native: video element managed by us */}
+          {HAS_NATIVE_DETECTOR && (
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              style={{ minHeight: 300 }}
+              playsInline
+              muted
+            />
+          )}
+          {/* Fallback: html5-qrcode manages its own DOM */}
+          {!HAS_NATIVE_DETECTOR && (
+            <div id="barcode-reader" className="w-full" style={{ minHeight: 300 }} />
+          )}
+
+          {/* Scan region overlay for native mode */}
+          {HAS_NATIVE_DETECTOR && scannerReady && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-72 h-36 border-2 border-white/40 rounded-lg" />
+            </div>
+          )}
 
           {!scannerReady && !cameraError && (
             <div className="absolute inset-0 flex items-center justify-center bg-navy-950">
@@ -276,7 +361,6 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
             </div>
           )}
 
-          {/* Lookup indicator */}
           {isLookingUp && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-navy-900/90 backdrop-blur px-3 py-1.5 rounded-full flex items-center gap-2">
               <Loader2 size={14} className="text-accent-400 animate-spin" />
@@ -284,7 +368,6 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
             </div>
           )}
 
-          {/* Last scanned flash */}
           {lastScanned && !isLookingUp && scannedItems.length > 0 && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-emerald-500/90 backdrop-blur px-3 py-1.5 rounded-full">
               <span className="text-xs text-white font-medium">
@@ -294,14 +377,12 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
           )}
         </div>
 
-        {/* Instructions */}
         {scannedItems.length === 0 && !cameraError && (
           <div className="px-4 py-3 text-center">
             <p className="text-gray-500 text-sm">Point your camera at a barcode to scan</p>
           </div>
         )}
 
-        {/* Scanned items list */}
         {scannedItems.length > 0 && (
           <div className="flex-1 overflow-y-auto px-4 pt-3 pb-24">
             <div className="flex items-center justify-between mb-3">
@@ -340,7 +421,6 @@ export function BarcodeScanner({ isOpen, onClose }: BarcodeScannerProps) {
         )}
       </div>
 
-      {/* Bottom action bar */}
       {scannedItems.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-navy-900/95 backdrop-blur-lg border-t border-white/5 px-4 py-4 z-50">
           <button
